@@ -264,3 +264,41 @@ def test_no_change_controls_while_hidden_or_locked():
     at.toggle(key=f"reveal_{gid}").set_value(True)
     rerun(at)
     assert not [b for b in at.button if b.key == "swap_go"]
+
+
+# ---------------------------------------------------------------- saved draws
+
+def test_save_draw_again_and_restore_from_the_page(monkeypatch):
+    s, gid, (ann, bob, cy, dee) = make_group()
+    good = {ann: bob, bob: cy, cy: dee, dee: ann}
+    s.save_draw(gid, good, NOW)
+    reads = []
+    real = Storage.get_assignments
+    monkeypatch.setattr(Storage, "get_assignments", lambda self, d: reads.append(d) or real(self, d))
+
+    at = load("send", gid)
+    at.text_input(key="snap_name").input("Perfect")
+    at.button(key="snap_save").click()
+    rerun(at)
+    assert "Saved the draw as Perfect." in texts(at)
+    at.button(key="draw").click()  # draw again
+    rerun(at)
+    ((sid, name, _, usable),) = s.list_snapshots(gid)
+    at.button(key=f"snap_restore_{sid}").click()
+    rerun(at)
+    assert "Restored the saved draw Perfect. The matches stay hidden." in texts(at)
+    assert reads == []  # saving, listing and restoring never read the matches on the page
+    assert real(s, s.draw_status(gid)[0]) == good
+
+
+def test_unusable_saved_draw_cannot_be_restored_from_the_page():
+    s, gid, (ann, bob, cy, dee) = make_group()
+    s.save_draw(gid, {ann: bob, bob: cy, cy: dee, dee: ann}, NOW)
+    sid = s.save_snapshot(gid, "Old", NOW)
+    s.add_person(gid, "Eve", "eve@example.com")
+    at = load("send", gid)
+    assert at.button(key=f"snap_restore_{sid}").disabled
+    assert any("people changed since" in m.value for m in at.markdown)
+    at.button(key=f"snap_delete_{sid}").click()
+    rerun(at)
+    assert s.list_snapshots(gid) == []

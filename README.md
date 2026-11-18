@@ -43,6 +43,10 @@ for anyone you like; everyone else is drawn at random around them.
 **Changing a match:** after drawing, turn on **Reveal the matches** and use **Change a match** to give
 someone a different person (the two people involved swap). This works until real emails start going out.
 
+**Saved draws:** found a draw you like but want to try other things? Open **Saved draws** on the Send
+page, give it a name and save it. **Restore** brings it back exactly, as long as the group still has the
+same people. Saved draws never show the matches.
+
 **Reveal:** the matches stay hidden, even from you, since the organizer is usually in the draw. If you
 need to see them, turn on **Reveal the matches** on the Send page. It's off again in every new tab.
 

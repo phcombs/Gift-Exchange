@@ -69,6 +69,24 @@ CREATE TABLE pins (
 CREATE INDEX pins_group ON pins(group_id);
 """
 
+# version 3: draws saved under a name, to restore later
+SAVED_SCHEMA = """
+CREATE TABLE saved_draws (
+    id INTEGER PRIMARY KEY,
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    UNIQUE (group_id, name)
+);
+CREATE TABLE saved_matches (
+    saved_id INTEGER NOT NULL REFERENCES saved_draws(id) ON DELETE CASCADE,
+    giver_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+    recipient_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+    PRIMARY KEY (saved_id, giver_id)
+);
+"""
+
 
 def _run_script(conn, script):
     for statement in script.split(";"):
@@ -144,6 +162,9 @@ class Storage:
                 version = 1
             if version == 1:  # upgrade: add fixed matches
                 _run_script(conn, PINS_SCHEMA)
+                version = 2
+            if version == 2:  # upgrade: add saved draws
+                _run_script(conn, SAVED_SCHEMA)
             if version < SCHEMA_VERSION:
                 conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
@@ -394,6 +415,82 @@ class Storage:
                 "UPDATE assignments SET recipient_id = ? WHERE draw_id = ? AND giver_id = ?",
                 [(r, row[0], g) for g, r in assignment.items()],
             )
+
+    # ------------------------------------------------------------ saved draws
+
+    def save_snapshot(self, group_id, name, now):
+        """Save the group's current draw under a name. Returns its id."""
+        name = clean_name(name)
+        if not name:
+            raise StorageError("Give the saved draw a name.")
+        with self._write() as conn:
+            row = self._draw_row(conn, group_id)
+            if row is None:
+                raise StorageError("There is no draw to save. Press Draw first.")
+            if conn.execute(
+                "SELECT 1 FROM saved_draws WHERE group_id = ? AND name = ? COLLATE NOCASE",
+                (group_id, name),
+            ).fetchone():
+                raise StorageError(f"There is already a saved draw called {name}.")
+            matches = conn.execute(
+                "SELECT giver_id, recipient_id FROM assignments WHERE draw_id = ?", (row[0],)
+            ).fetchall()
+            saved_id = conn.execute(
+                "INSERT INTO saved_draws (group_id, name, created_at, size) VALUES (?, ?, ?, ?)",
+                (group_id, name, _stamp(now), len(matches)),
+            ).lastrowid
+            conn.executemany(
+                "INSERT INTO saved_matches (saved_id, giver_id, recipient_id) VALUES (?, ?, ?)",
+                [(saved_id, g, r) for g, r in matches],
+            )
+            return saved_id
+
+    def _snapshot_matches(self, conn, saved_id):
+        return dict(conn.execute(
+            "SELECT giver_id, recipient_id FROM saved_matches WHERE saved_id = ?", (saved_id,)
+        ).fetchall())
+
+    def list_snapshots(self, group_id):
+        """[(id, name, created_at, usable)]. usable: it still covers exactly the group's people."""
+        with self._read() as conn:
+            members = {
+                r[0] for r in conn.execute("SELECT id FROM people WHERE group_id = ?", (group_id,))
+            }
+            result = []
+            for sid, name, created_at, size in conn.execute(
+                "SELECT id, name, created_at, size FROM saved_draws WHERE group_id = ? "
+                "ORDER BY created_at DESC, id DESC", (group_id,)
+            ).fetchall():
+                matches = self._snapshot_matches(conn, sid)
+                usable = (len(matches) == size and set(matches) == members
+                          and set(matches.values()) == members)
+                result.append((sid, name, created_at, usable))
+            return result
+
+    def restore_snapshot(self, saved_id, now):
+        """Make a saved draw the group's draw again (replacing an unlocked one). Returns the draw id.
+        Raises Locked, or StorageError if the people changed since it was saved."""
+        with self._read() as conn:
+            row = conn.execute(
+                "SELECT group_id, size FROM saved_draws WHERE id = ?", (saved_id,)
+            ).fetchone()
+            if row is None:
+                raise NotFound(f"Saved draw {saved_id} was not found.")
+            matches = self._snapshot_matches(conn, saved_id)
+        if len(matches) != row[1]:
+            raise StorageError("Someone in this saved draw was removed from the group, so it can't be restored.")
+        try:
+            return self.save_draw(row[0], matches, now)
+        except Locked:
+            raise
+        except StorageError:
+            raise StorageError(
+                "The group's people changed since this draw was saved, so it can't be restored."
+            ) from None
+
+    def delete_snapshot(self, saved_id):
+        with self._write() as conn:
+            conn.execute("DELETE FROM saved_draws WHERE id = ?", (saved_id,))
 
     def discard_draw(self, group_id):
         """"Start a new exchange": delete the draw and its send records. Returns real emails sent."""

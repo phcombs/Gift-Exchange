@@ -39,7 +39,7 @@ def partners(store, gid):
 
 def test_new_file_gets_schema_version_1(store):
     con = sqlite3.connect(paths.db_path())
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 3
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     con.close()
     assert {"groups", "people", "draws", "assignments", "sends"} <= tables
@@ -207,15 +207,17 @@ def test_version_1_file_is_upgraded_with_its_data(tmp_path):
     gid = s.create_group("G")
     s.add_person(gid, "Ann", "ann@example.com")
     con = sqlite3.connect(db)
-    con.execute("DROP TABLE pins")
+    for table in ("saved_matches", "saved_draws", "pins"):
+        con.execute(f"DROP TABLE {table}")
     con.execute("PRAGMA user_version = 1")
     con.commit()
     con.close()
     upgraded = Storage(db)
     assert [p.name for p in upgraded.list_people(gid)] == ["Ann"]
     assert upgraded.list_pins(gid) == {}
+    assert upgraded.list_snapshots(gid) == []
     con = sqlite3.connect(db)
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 3
     con.close()
 
 
@@ -261,3 +263,69 @@ def test_update_assignment_changes_matches_and_drops_practice_records(store):
     lock(store, gid)
     with pytest.raises(Locked):
         store.update_assignment(gid, {ann: bob, bob: cy, cy: ann})
+
+
+# ---------------------------------------------------------------- saved draws
+
+def test_save_and_restore_a_draw_after_drawing_again(store):
+    gid, (ann, bob, cy, dee) = group_with(store, "Ann", "Bob", "Cy", "Dee")
+    good = {ann: bob, bob: cy, cy: dee, dee: ann}
+    store.save_draw(gid, good, NOW)
+    sid = store.save_snapshot(gid, "  Good one ", NOW)
+    store.save_draw(gid, {ann: cy, cy: ann, bob: dee, dee: bob}, NOW)  # "Draw again"
+    ((listed_id, name, created_at, usable),) = store.list_snapshots(gid)
+    assert (listed_id, name, usable) == (sid, "Good one", True)
+    draw_id = store.restore_snapshot(sid, NOW)
+    assert store.get_assignments(draw_id) == good
+    assert store.draw_status(gid)[0] == draw_id
+
+
+def test_restore_after_a_people_change_that_cleared_the_draw(store):
+    gid, (ann, bob, cy, dee) = group_with(store, "Ann", "Bob", "Cy", "Dee")
+    good = {ann: bob, bob: cy, cy: dee, dee: ann}
+    store.save_draw(gid, good, NOW)
+    sid = store.save_snapshot(gid, "Keep", NOW)
+    store.set_couple(cy, dee)  # clears the draw
+    assert store.draw_status(gid)[0] is None
+    assert store.get_assignments(store.restore_snapshot(sid, NOW)) == good
+
+
+def test_snapshot_unusable_after_people_change(store):
+    gid, (ann, bob, cy, dee) = group_with(store, "Ann", "Bob", "Cy", "Dee")
+    store.save_draw(gid, {ann: bob, bob: cy, cy: dee, dee: ann}, NOW)
+    added = store.save_snapshot(gid, "Before Eve", NOW)
+    removed = store.save_snapshot(gid, "Before Dee left", NOW)
+    store.add_person(gid, "Eve", "eve@example.com")
+    assert {s[1]: s[3] for s in store.list_snapshots(gid)} == {"Before Eve": False, "Before Dee left": False}
+    with pytest.raises(Exception):
+        store.restore_snapshot(added, NOW)
+    store.delete_person(dee)
+    with pytest.raises(Exception):
+        store.restore_snapshot(removed, NOW)
+
+
+def test_snapshot_rules(store):
+    gid, (ann, bob, cy) = group_with(store, "Ann", "Bob", "Cy")
+    with pytest.raises(Exception):
+        store.save_snapshot(gid, "Nothing yet", NOW)  # no draw
+    store.save_draw(gid, {ann: bob, bob: cy, cy: ann}, NOW)
+    sid = store.save_snapshot(gid, "A", NOW)
+    with pytest.raises(Exception):
+        store.save_snapshot(gid, "a", NOW)  # same name, ignoring case
+    with pytest.raises(Exception):
+        store.save_snapshot(gid, "   ", NOW)
+    lock(store, gid)
+    with pytest.raises(Locked):
+        store.restore_snapshot(sid, NOW)
+    store.delete_snapshot(sid)
+    assert store.list_snapshots(gid) == []
+
+
+def test_snapshots_survive_a_new_exchange_and_go_with_the_group(store):
+    gid, (ann, bob, cy) = group_with(store, "Ann", "Bob", "Cy")
+    store.save_draw(gid, {ann: bob, bob: cy, cy: ann}, NOW)
+    store.save_snapshot(gid, "Last year", NOW)
+    store.discard_draw(gid)
+    assert len(store.list_snapshots(gid)) == 1
+    store.delete_group(gid)
+    assert store.list_snapshots(gid) == []

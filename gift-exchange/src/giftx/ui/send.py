@@ -137,6 +137,47 @@ def change_match(store, gid, people, matches):
         )
 
 
+def saved_draws(store, gid, draw_id, locked):
+    """Save the current draw under a name; restore or delete saved ones. Never shows matches."""
+    snapshots = store.list_snapshots(gid)
+    label = f"Saved draws ({len(snapshots)})" if snapshots else "Saved draws"
+    with st.expander(label):
+        st.caption(
+            "Keep a draw you like, then try other things. Restoring brings it back exactly, as long as "
+            "the group has the same people. Saved draws never show who buys for whom."
+        )
+        if draw_id is not None:
+            left, right = st.columns([3, 1])
+            name = left.text_input("Name", key="snap_name", placeholder="e.g. Good one",
+                                   label_visibility="collapsed")
+            if right.button("Save this draw", key="snap_save"):
+                try:
+                    store.save_snapshot(gid, name, now_utc())
+                except StorageError as err:
+                    st.error(str(err))
+                else:
+                    common.flash(f"Saved the draw as {name.strip()}.")
+                    st.rerun()
+        for sid, name, created_at, usable in snapshots:
+            left, mid, right = st.columns([3, 1, 1])
+            note = "" if usable else " (people changed since; can't restore)"
+            left.write(f"**{name}**, saved {local_time(created_at)}{note}")
+            if mid.button("Restore", key=f"snap_restore_{sid}", disabled=locked or not usable):
+                try:
+                    store.restore_snapshot(sid, now_utc())
+                except StorageError as err:
+                    st.error(str(err))
+                else:
+                    common.flash(f"Restored the saved draw {name}. The matches stay hidden.")
+                    st.rerun()
+            if right.button("Delete", key=f"snap_delete_{sid}"):
+                store.delete_snapshot(sid)
+                common.flash(f"Deleted the saved draw {name}.")
+                st.rerun()
+        if not snapshots and draw_id is None:
+            st.write("No saved draws yet. Draw first, then save it here.")
+
+
 def draw_section(store, gid, people, draw_id, locked, givers):
     st.subheader("Draw")
     problems = check_group(people)
@@ -150,6 +191,7 @@ def draw_section(store, gid, people, draw_id, locked, givers):
     label = "Draw again" if draw_id is not None else "Draw"
     if st.button(label, key="draw", type="primary", disabled=bool(problems) or locked):
         do_draw(store, gid, people)
+    saved_draws(store, gid, draw_id, locked)
     if not givers:
         st.write("No draw yet.")
         return
