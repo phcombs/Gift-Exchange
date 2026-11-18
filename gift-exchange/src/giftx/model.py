@@ -1,7 +1,8 @@
 """Shared types. Imports nothing from the rest of giftx."""
 
 from dataclasses import dataclass
-from typing import Optional
+from datetime import datetime
+from typing import Callable, Optional
 
 PersonId = int
 
@@ -19,3 +20,29 @@ class Person:
     name: str
     email: str
     partner_id: Optional[PersonId]
+
+
+@dataclass(frozen=True)
+class Outgoing:
+    key: str  # "<group id>/<send id>" or "test/<UTC time>"; never a name
+    to: str
+    raw: bytes  # the finished email
+
+
+# send results; reasons never hold names or addresses
+@dataclass(frozen=True)
+class Sent:
+    pass
+
+
+@dataclass(frozen=True)
+class Rejected:
+    reason: str
+
+
+@dataclass(frozen=True)
+class Unknown:
+    reason: str
+
+
+Clock = Callable[[], datetime]  # returns an aware UTC datetime

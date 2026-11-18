@@ -26,9 +26,11 @@ stop the app.
 
 1. **People** page: create a group, then add people one at a time or paste a list (one `name, email`
    per line). Mark couples, who never draw each other.
-2. **Send** page: press **Draw**. The table lists everyone with "match hidden".
+2. **Message** page: edit the subject and message. `{giver}` and `{recipient}` are filled in for each
+   person. The preview uses made-up names, and **Send test email** writes a practice email to a file.
+3. **Send** page: press **Draw**. The table lists everyone with "match hidden".
 
-Emailing the matches (practice mode first, then Gmail) is still being built.
+Sending everyone their match (practice mode first, then Gmail) is still being built.
 
 ## Your data
 

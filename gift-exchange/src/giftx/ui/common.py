@@ -55,7 +55,9 @@ def people_page():
 
 
 def message_page():
-    banner()
+    from giftx.ui import message
+
+    message.page()
 
 
 def images_page():
