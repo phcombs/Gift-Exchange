@@ -260,3 +260,93 @@ def test_wrappers_fall_back_to_uv_without_python():
         text = (REPO / name).read_text(encoding="utf-8")
         assert "run --no-project --python 3.12 run.py" in text, name
         assert "UV_NO_MODIFY_PATH" in text, name
+
+
+# ---------------------------------------------------------------- shortcuts
+
+@pytest.fixture
+def shortcuts(launcher, monkeypatch, tmp_path):
+    run = launcher
+    monkeypatch.delenv("GIFTX_NO_SHORTCUT", raising=False)
+    made = []
+    monkeypatch.setattr(run, "create_shortcuts", lambda target: made.append(target) or ["desktop"])
+    run.made = made
+    return run
+
+
+def test_shortcut_made_once_per_folder(shortcuts, capsys):
+    run = shortcuts
+    run.ensure_shortcuts()
+    run.ensure_shortcuts()
+    assert run.made == [run.start_script()]
+    assert "Added a Gift Exchange shortcut to your desktop." in capsys.readouterr().out
+
+
+def test_shortcut_redone_after_the_folder_moved(shortcuts):
+    run = shortcuts
+    (run.HERE / run.SHORTCUT_MARKER).write_text("/old/place/run\n", encoding="utf-8")
+    run.ensure_shortcuts()
+    assert run.made == [run.start_script()]
+
+
+def test_failed_shortcut_is_tried_again_and_never_stops_the_app(shortcuts, monkeypatch):
+    run = shortcuts
+    monkeypatch.setattr(run, "create_shortcuts", lambda target: [])
+    run.ensure_shortcuts()
+    assert not (run.HERE / run.SHORTCUT_MARKER).exists()
+
+    def boom(target):
+        raise OSError("no desktop")
+
+    monkeypatch.setattr(run, "create_shortcuts", boom)
+    run.ensure_shortcuts()  # no exception
+
+
+def test_shortcuts_can_be_turned_off(shortcuts, monkeypatch):
+    monkeypatch.setenv("GIFTX_NO_SHORTCUT", "1")
+    shortcuts.ensure_shortcuts()
+    assert shortcuts.made == []
+
+
+def test_app_start_adds_the_shortcut(shortcuts, monkeypatch):
+    run = shortcuts
+    health_after(run, monkeypatch, [False, True])
+    monkeypatch.setattr(run, "find_uv", lambda: "UV")
+    popen_recording(run, monkeypatch)
+    assert run.main() == 0
+    assert run.made == [run.start_script()]
+
+
+def test_mac_shortcut_is_an_executable_command_file(launcher, monkeypatch, tmp_path):
+    run = launcher
+    home = tmp_path / "home"
+    (home / "Desktop").mkdir(parents=True)
+    monkeypatch.setattr(run.Path, "home", classmethod(lambda cls: home))
+    assert run._mac_shortcut(tmp_path / "app" / "run") == ["desktop"]
+    text = (home / "Desktop" / "Gift Exchange.command").read_text(encoding="utf-8")
+    assert text == f'#!/bin/sh\nexec "{tmp_path / "app" / "run"}"\n'
+
+
+def test_linux_shortcut_is_a_menu_entry(launcher, monkeypatch, tmp_path):
+    run = launcher
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    assert run._linux_shortcut(tmp_path / "app" / "run") == ["applications menu"]
+    text = (tmp_path / "xdg" / "applications" / "gift-exchange.desktop").read_text(encoding="utf-8")
+    assert "Name=Gift Exchange" in text and "Terminal=true" in text
+    assert f'Exec="{tmp_path / "app" / "run"}"' in text
+
+
+def test_windows_shortcut_passes_paths_by_environment(launcher, monkeypatch, tmp_path):
+    run = launcher
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs["env"]))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(run.subprocess, "run", fake_run)
+    target = tmp_path / "it's here" / "run.cmd"
+    assert run._windows_shortcuts(target) == ["desktop", "Start menu"]
+    ((cmd, env),) = calls
+    assert cmd[0] == "powershell" and str(target) not in cmd[-1]
+    assert env["GX_TARGET"] == str(target) and env["GX_NAME"] == "Gift Exchange"

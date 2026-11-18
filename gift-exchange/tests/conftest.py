@@ -16,6 +16,7 @@ _local = threading.local()
 def _data_dir_guard(tmp_path, monkeypatch):
     folder = tmp_path / "giftx-data"
     monkeypatch.setenv("GIFTX_DATA_DIR", str(folder))
+    monkeypatch.setenv("GIFTX_NO_SHORTCUT", "1")  # never put shortcuts on the real desktop
     return folder
 
 
