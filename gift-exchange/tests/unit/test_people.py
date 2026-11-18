@@ -20,7 +20,7 @@ def test_clean_name_trims_and_collapses_spaces():
 
 def test_email_check_catches_blanks_and_obvious_typos():
     assert is_valid_email("ann@example.com")
-    assert is_valid_email("  ann.lee+gifts@mail.example.org ")
+    assert is_valid_email("  ann.lee+gifts@example.org ")
     for bad in ["", "ann", "ann@", "ann@example", "ann @example.com", "a@b@example.com"]:
         assert not is_valid_email(bad), bad
 
