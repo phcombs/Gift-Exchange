@@ -28,9 +28,10 @@ stop the app.
    per line). Mark couples, who never draw each other.
 2. **Message** page: edit the subject and message. `{giver}` and `{recipient}` are filled in for each
    person. The preview uses made-up names, and **Send test email** writes a practice email to a file.
-3. **Send** page: press **Draw**. The table lists everyone with "match hidden".
+3. **Send** page: press **Draw**. The table lists everyone with "match hidden". Then, in Practice mode,
+   **Send all unsent** writes everyone's email to a file so you can check them without sending anything.
 
-Sending everyone their match (practice mode first, then Gmail) is still being built.
+Sending through Gmail (Real mode) is still being built.
 
 ## Your data
 

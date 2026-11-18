@@ -11,7 +11,7 @@ from pathlib import Path
 
 from giftx import SCHEMA_VERSION
 from giftx.compose import DEFAULT_BODY, DEFAULT_SUBJECT
-from giftx.model import Person
+from giftx.model import Person, Rejected, SendRecord, Sent, Unknown
 from giftx.people import clean_email, clean_name
 
 SCHEMA = """
@@ -331,3 +331,119 @@ class Storage:
             ).fetchone()[0]
             conn.execute("DELETE FROM draws WHERE id = ?", (row[0],))
             return sent
+
+    # ------------------------------------------------------------ sends
+
+    _RECORD_SQL = (
+        "SELECT s.id, s.draw_id, d.group_id, s.giver_id, p.name, s.mode, s.status, s.to_address, "
+        "s.subject, s.body, s.image_name, s.started_at, s.finished_at, s.error "
+        "FROM sends s JOIN draws d ON d.id = s.draw_id JOIN people p ON p.id = s.giver_id "
+    )
+
+    @staticmethod
+    def _insert_records(conn, draw_id, mode, rows):
+        conn.executemany(
+            "INSERT INTO sends (draw_id, giver_id, mode, status, subject, body, image_name) "
+            "VALUES (?, ?, ?, 'pending', ?, ?, ?)",
+            [(draw_id, r.giver_id, mode, r.subject, r.body, r.image_name) for r in rows],
+        )
+
+    def create_real_records(self, draw_id, rows, now):
+        """Lock the draw and store the real records. False if it was already locked (records exist)."""
+        with self._write() as conn:
+            row = conn.execute("SELECT locked_at FROM draws WHERE id = ?", (draw_id,)).fetchone()
+            if row is None:
+                raise NotFound(f"Draw {draw_id} was not found.")
+            if row[0] is not None:
+                return False
+            conn.execute("UPDATE draws SET locked_at = ? WHERE id = ?", (_stamp(now), draw_id))
+            self._insert_records(conn, draw_id, "real", rows)
+            return True
+
+    def replace_practice_records(self, draw_id, rows):
+        with self._write() as conn:
+            conn.execute("DELETE FROM sends WHERE draw_id = ? AND mode = 'practice'", (draw_id,))
+            self._insert_records(conn, draw_id, "practice", rows)
+
+    def sendable(self, draw_id, mode, only=None):
+        """Records the pipeline may send: pending first, then failed; each by giver name."""
+        sql = self._RECORD_SQL + (
+            "WHERE s.draw_id = ? AND s.mode = ? AND s.status IN ('pending', 'failed') "
+        )
+        args = [draw_id, mode]
+        if only is not None:
+            sql += "AND s.id = ? "
+            args.append(only)
+        sql += "ORDER BY s.status = 'failed', p.name COLLATE NOCASE, s.id"
+        with self._read() as conn:
+            return [SendRecord(*row) for row in conn.execute(sql, args)]
+
+    def claim(self, send_id, now, to_address):
+        """pending|failed -> sending, writing the address actually used. True if this caller got it."""
+        with self._write() as conn:
+            cur = conn.execute(
+                "UPDATE sends SET status = 'sending', started_at = ?, finished_at = NULL, error = NULL, "
+                "to_address = ? WHERE id = ? AND status IN ('pending', 'failed')",
+                (_stamp(now), to_address, send_id),
+            )
+            return cur.rowcount == 1
+
+    def record(self, send_id, result, now):
+        """sending -> sent | failed | unknown."""
+        if isinstance(result, Sent):
+            status, error = "sent", None
+        elif isinstance(result, Rejected):
+            status, error = "failed", result.reason
+        elif isinstance(result, Unknown):
+            status, error = "unknown", result.reason
+        else:
+            raise TypeError(f"not a send result: {type(result).__name__}")
+        with self._write() as conn:
+            conn.execute(
+                "UPDATE sends SET status = ?, error = ?, finished_at = ? "
+                "WHERE id = ? AND status = 'sending'",
+                (status, error, _stamp(now), send_id),
+            )
+
+    def recover_all_sending(self):
+        """After a restart nothing can be in flight: every 'sending' record becomes 'unknown'."""
+        with self._write() as conn:
+            return conn.execute(
+                "UPDATE sends SET status = 'unknown', error = 'the app stopped while sending' "
+                "WHERE status = 'sending'"
+            ).rowcount
+
+    def mark_went(self, send_id):
+        """unknown -> sent only."""
+        with self._write() as conn:
+            return conn.execute(
+                "UPDATE sends SET status = 'sent', error = NULL WHERE id = ? AND status = 'unknown'",
+                (send_id,),
+            ).rowcount == 1
+
+    def reset_to_pending(self, send_id):
+        """Real sent|failed|unknown -> pending, for "Send again"."""
+        with self._write() as conn:
+            return conn.execute(
+                "UPDATE sends SET status = 'pending', error = NULL, started_at = NULL, finished_at = NULL "
+                "WHERE id = ? AND mode = 'real' AND status IN ('sent', 'failed', 'unknown')",
+                (send_id,),
+            ).rowcount == 1
+
+    def status_rows(self, draw_id, mode):
+        with self._read() as conn:
+            return [
+                SendRecord(*row)
+                for row in conn.execute(
+                    self._RECORD_SQL + "WHERE s.draw_id = ? AND s.mode = ? "
+                    "ORDER BY p.name COLLATE NOCASE, s.id",
+                    (draw_id, mode),
+                )
+            ]
+
+    def images_in_use(self):
+        with self._read() as conn:
+            return {
+                row[0]
+                for row in conn.execute("SELECT DISTINCT image_name FROM sends WHERE image_name IS NOT NULL")
+            }

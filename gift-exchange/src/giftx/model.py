@@ -46,3 +46,43 @@ class Unknown:
 
 
 Clock = Callable[[], datetime]  # returns an aware UTC datetime
+
+
+@dataclass(frozen=True)
+class NewRecord:
+    """A composed email for one giver, not yet stored."""
+
+    giver_id: PersonId
+    subject: str
+    body: str
+    image_name: Optional[str]
+
+
+@dataclass(frozen=True)
+class SendRecord:
+    id: int
+    draw_id: int
+    group_id: int
+    giver_id: PersonId
+    giver_name: str
+    mode: str  # "practice" | "real"
+    status: str  # "pending" | "sending" | "sent" | "failed" | "unknown"
+    to_address: Optional[str]
+    subject: str
+    body: str
+    image_name: Optional[str]
+    started_at: Optional[str]
+    finished_at: Optional[str]
+    error: Optional[str]
+
+
+@dataclass(frozen=True)
+class Summary:
+    sent: int
+    failed: int
+    unknown: int
+    stopped_at: Optional[str]  # the giver name the page shows
+    remaining: int
+
+
+ProgressFn = Callable[[int, int], None]  # (done, total)

@@ -12,6 +12,7 @@ from giftx.people import (
     shared_addresses,
     shared_notice,
 )
+from giftx import pipeline
 from giftx.storage import Locked, StorageError
 from giftx.ui import common
 
@@ -165,8 +166,11 @@ def delete_group(store, gid, name, locked):
         st.write(f"Deletes {name}, its people and its draw. This can't be undone.")
         sure = st.checkbox(f"Yes, delete {name}", key="delete_group_sure", disabled=locked)
         if st.button("Delete group", key="delete_group", disabled=locked or not sure):
-            # practice files arrive in M4; pipeline.clear_practice_files is called here then
-            apply(store, None, lambda: store.delete_group(gid), f"Deleted {name}.")
+            def delete():
+                store.delete_group(gid)
+                pipeline.clear_practice_files(gid)
+
+            apply(store, None, delete, f"Deleted {name}.")
 
 
 def page():

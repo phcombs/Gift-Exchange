@@ -1,8 +1,14 @@
 import streamlit as st
 
 from giftx import APP_NAME
-from giftx.storage import NewerVersion
+from giftx.storage import NewerVersion, Storage
 from giftx.ui import common
+
+
+@st.cache_resource
+def recover_once(db_path):
+    """Once per server process (and database file): nothing can be in flight after a restart."""
+    return Storage(db_path).recover_all_sending()
 
 
 def group_selector(store):
@@ -28,6 +34,7 @@ def sidebar():
         common.banner()
         st.error(str(err))
         st.stop()
+    recover_once(str(store.db_path))
     group_selector(store)
 
 

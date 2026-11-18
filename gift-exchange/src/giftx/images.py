@@ -7,3 +7,8 @@ def read_image(name):
     """(bytes, ext) of a stored image. Raises FileNotFoundError if it's gone."""
     path = paths.images_dir() / name
     return path.read_bytes(), path.suffix.lstrip(".").lower()
+
+
+def pick(rng):
+    """A random image name for one email, or None. M7 fills the library; until then: no image."""
+    return None

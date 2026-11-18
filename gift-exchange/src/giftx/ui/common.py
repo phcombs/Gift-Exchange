@@ -1,6 +1,7 @@
 import streamlit as st
 
 from giftx import paths
+from giftx.senders import PracticeSender
 from giftx.storage import Storage
 
 PRACTICE_TEXT = "Practice mode: nothing is emailed"
@@ -23,6 +24,13 @@ def store():
     """Open the database in the data folder (created on first use). Raises NewerVersion."""
     paths.data_dir()
     return Storage(paths.db_path())
+
+
+def sender_for(mode):
+    """The sender for this mode, or None while real mode has no signed-in Gmail (M6)."""
+    if mode == "practice":
+        return PracticeSender()
+    return None
 
 
 def group_id():

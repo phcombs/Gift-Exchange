@@ -59,3 +59,50 @@ def _google_guard(monkeypatch):
 
     monkeypatch.setattr(gmail.GmailSender, "__init__", blocked_init)
     monkeypatch.setattr(auth, "sign_in", blocked_sign_in)
+
+
+# ---------------------------------------------------------------- M5: fake sender and fixed clock
+
+class SenderCrash(BaseException):
+    """Raised by FakeSender(crash_on=N) after the email counts as delivered (like a killed process)."""
+
+
+class FakeSender:
+    """Counts calls (1-based). fail_on -> Rejected, unknown_on -> Unknown, crash_on -> delivered, then raises."""
+
+    def __init__(self, fail_on=None, crash_on=None, unknown_on=None):
+        from giftx.model import Rejected, Sent, Unknown
+
+        self._results = (Sent, Rejected, Unknown)
+        self.fail_on, self.crash_on, self.unknown_on = fail_on, crash_on, unknown_on
+        self.calls = 0
+        self.delivered = []  # Outgoing messages that "reached" the recipient
+        self._lock = threading.Lock()
+
+    def send(self, msg):
+        Sent, Rejected, Unknown = self._results
+        with self._lock:
+            self.calls += 1
+            n = self.calls
+        if n == self.fail_on:
+            return Rejected("refused by the fake sender")
+        with self._lock:
+            self.delivered.append(msg)
+        if n == self.crash_on:
+            raise SenderCrash()
+        if n == self.unknown_on:
+            return Unknown("the fake sender lost the reply")
+        return Sent()
+
+
+@pytest.fixture
+def fake_sender():
+    return FakeSender
+
+
+@pytest.fixture
+def clock():
+    from datetime import datetime, timezone
+
+    fixed = datetime(2026, 11, 15, 1, 30, tzinfo=timezone.utc)
+    return lambda: fixed
