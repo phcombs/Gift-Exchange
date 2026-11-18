@@ -10,7 +10,7 @@ from datetime import timezone
 from pathlib import Path
 
 from giftx import SCHEMA_VERSION
-from giftx.compose import DEFAULT_BODY, DEFAULT_SUBJECT
+from giftx.compose import DEFAULT_BODY, DEFAULT_SUBJECT, OLD_DEFAULT_BODIES
 from giftx.model import Person, Rejected, SendRecord, Sent, Unknown
 from giftx.people import clean_email, clean_name
 
@@ -167,6 +167,11 @@ class Storage:
                 _run_script(conn, SAVED_SCHEMA)
             if version < SCHEMA_VERSION:
                 conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            # groups still on an earlier default message get the current one (edited ones are kept)
+            conn.executemany(
+                "UPDATE groups SET body = ? WHERE body = ?",
+                [(DEFAULT_BODY, old) for old in OLD_DEFAULT_BODIES],
+            )
 
     # ------------------------------------------------------------ helpers
 

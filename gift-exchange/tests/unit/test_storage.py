@@ -329,3 +329,15 @@ def test_snapshots_survive_a_new_exchange_and_go_with_the_group(store):
     assert len(store.list_snapshots(gid)) == 1
     store.delete_group(gid)
     assert store.list_snapshots(gid) == []
+
+
+def test_groups_on_the_old_default_message_get_the_new_one(store):
+    from giftx.compose import OLD_DEFAULT_BODIES
+
+    a = store.create_group("Old default")
+    b = store.create_group("Edited")
+    store.set_message(a, DEFAULT_SUBJECT, OLD_DEFAULT_BODIES[0])
+    store.set_message(b, DEFAULT_SUBJECT, OLD_DEFAULT_BODIES[0] + " Edited by hand.")
+    reopened = Storage(store.db_path)
+    assert reopened.get_message(a)[1] == DEFAULT_BODY
+    assert reopened.get_message(b)[1] == OLD_DEFAULT_BODIES[0] + " Edited by hand."

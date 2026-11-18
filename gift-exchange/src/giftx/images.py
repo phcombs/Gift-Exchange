@@ -78,3 +78,17 @@ def pick(rng):
     """A random picture name for one email, or None when the library is empty."""
     names = list_images()
     return rng.choice(names) if names else None
+
+
+def deal(rng, count):
+    """Picture names for count emails, dealt like cards: all different while the library lasts, then
+    reshuffled for the next round. [None] * count when the library is empty."""
+    names = list_images()
+    if not names:
+        return [None] * count
+    dealt = []
+    while len(dealt) < count:
+        deck = list(names)
+        rng.shuffle(deck)
+        dealt.extend(deck)
+    return dealt[:count]

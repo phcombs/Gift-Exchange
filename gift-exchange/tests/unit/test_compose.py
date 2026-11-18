@@ -111,3 +111,8 @@ def test_compose_reads_no_storage():
 
     source = inspect.getsource(compose)
     assert "storage" not in source and "sqlite" not in source
+
+
+def test_default_body_ends_with_the_match():
+    assert DEFAULT_BODY.endswith("You are buying a gift for {recipient}.")
+    assert "secret" not in DEFAULT_BODY

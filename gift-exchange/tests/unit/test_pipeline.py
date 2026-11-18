@@ -210,7 +210,7 @@ def test_no_streamlit_in_the_pipeline():
 
 def test_missing_image_stops_before_claiming(setup, fake_sender, clock, monkeypatch):
     store, gid, ids, draw_id = setup
-    monkeypatch.setattr(pipeline.images, "pick", lambda rng: "gone.png")
+    monkeypatch.setattr(pipeline.images, "deal", lambda rng, count: ["gone.png"] * count)
     pipeline.prepare_real(store, gid, random.Random(1), now=clock)
     sender = fake_sender()
     with pytest.raises(pipeline.MissingImage) as err:

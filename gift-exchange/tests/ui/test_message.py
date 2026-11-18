@@ -140,3 +140,26 @@ def test_real_mode_test_send_waits_for_email_setup():
     rerun(at)
     assert at.button(key="test_send").disabled
     assert "Set up your email account on the Setup page first" in [c.value for c in at.caption]
+
+
+def test_test_send_attaches_a_picture_when_the_library_has_one():
+    import struct
+    import zlib
+    from email import message_from_bytes
+    from email.policy import default
+
+    from giftx import images
+
+    def chunk(k, d):
+        return struct.pack(">I", len(d)) + k + d + struct.pack(">I", zlib.crc32(k + d))
+    png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+           + chunk(b"IDAT", zlib.compress(b"\0\0\0\0")) + chunk(b"IEND", b""))
+    images.save_image(png)
+    s, gid = group()
+    at = load(gid)
+    at.text_input(key="test_to").input("me@example.com")
+    at.button(key="test_send").click()
+    rerun(at)
+    (eml,) = paths.practice_test_dir().iterdir()
+    msg = message_from_bytes(eml.read_bytes(), policy=default)
+    assert [a.get_filename() for a in msg.iter_attachments()] == ["picture.png"]

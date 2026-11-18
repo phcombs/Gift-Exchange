@@ -118,3 +118,21 @@ def test_missing_frozen_picture_stops_before_claiming(drawn, fake_sender):
         pipeline.run_sends(s, draw_id, "real", sender, lambda: NOW)
     assert sender.calls == 0
     assert {r.status for r in s.status_rows(draw_id, "real")} == {"pending"}
+
+
+def test_deal_gives_everyone_a_different_picture_while_they_last():
+    rng = random.Random(5)
+    assert images.deal(rng, 3) == [None, None, None]
+    names = [images.save_image(png(i)) for i in range(3)]
+    for _ in range(20):
+        dealt = images.deal(rng, 3)
+        assert sorted(dealt) == sorted(names)
+    seven = images.deal(rng, 7)  # 3 + 3 + 1: each round uses every picture once
+    assert sorted(seven[:3]) == sorted(names) and sorted(seven[3:6]) == sorted(names)
+
+
+def test_prepared_records_spread_the_pictures(drawn):
+    s, gid, draw_id = drawn
+    names = {images.save_image(png(i)) for i in range(4)}
+    pipeline.prepare_practice(s, gid, random.Random(2))
+    assert {r.image_name for r in s.status_rows(draw_id, "practice")} == names  # 4 people, 4 pictures

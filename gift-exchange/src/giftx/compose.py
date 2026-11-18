@@ -19,8 +19,12 @@ DEFAULT_BODY = (
     "This email tells you who you are buying a gift for in this year's gift exchange. The name is "
     "further down, so it does not show up in inbox or Sent-folder previews where someone else might "
     "see it. Scroll down when you are ready to read it.\n\n\n\n\n"
-    "You are buying a gift for {recipient}.\n\n"
-    "Please keep it a secret!"
+    "You are buying a gift for {recipient}."
+)
+
+# earlier defaults: a group still holding one of these unchanged is moved to DEFAULT_BODY
+OLD_DEFAULT_BODIES = (
+    DEFAULT_BODY + "\n\nPlease keep it a secret!",
 )
 
 PREVIEW_GIVER = "Alex"

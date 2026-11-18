@@ -33,17 +33,17 @@ def _utc_now():
 def _compose_rows(storage, group_id, draw_id, rng):
     subject, body = storage.get_message(group_id)
     names = {p.id: p.name for p in storage.list_people(group_id)}
-    rows = []
-    for giver, recipient in storage.get_assignments(draw_id).items():
-        rows.append(
-            NewRecord(
-                giver_id=giver,
-                subject=compose.fill(subject, names[giver], names[recipient]),
-                body=compose.fill(body, names[giver], names[recipient]),
-                image_name=images.pick(rng),
-            )
+    matches = storage.get_assignments(draw_id)
+    pictures = images.deal(rng, len(matches))  # all different while the library lasts
+    return [
+        NewRecord(
+            giver_id=giver,
+            subject=compose.fill(subject, names[giver], names[recipient]),
+            body=compose.fill(body, names[giver], names[recipient]),
+            image_name=picture,
         )
-    return rows
+        for (giver, recipient), picture in zip(matches.items(), pictures)
+    ]
 
 
 def _draw_id(storage, group_id):

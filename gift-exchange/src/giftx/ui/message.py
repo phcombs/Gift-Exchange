@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 
 import streamlit as st
 
-from giftx import compose, paths, pipeline
+import random
+
+from giftx import compose, images, paths, pipeline
 from giftx.model import Sent, Unknown
 from giftx.people import clean_email, email_problem
 from giftx.ui import common
@@ -85,7 +87,8 @@ def test_send(subject, body, refused):
             st.error("Fix the message first: " + " ".join(p.message for p in refused))
             return
         with st.spinner("Sending…" if mode == "real" else "Writing…"):
-            result = pipeline.test_send(sender, clean_email(to), subject, body, None, now_utc)
+            picture = images.pick(random.SystemRandom())  # one random picture, like a real email
+            result = pipeline.test_send(sender, clean_email(to), subject, body, picture, now_utc)
         if isinstance(result, Sent):
             if mode == "real":
                 st.success(f"Test email sent to {clean_email(to)}.")
