@@ -220,13 +220,12 @@ folder.
 
 ## For developers
 
-- Run the tests with `uv run --frozen pytest -q` (or `sh .team/check.sh`); start with `python run.py`.
+- Run the tests with `uv run --frozen pytest -q`; start the app with `python run.py`.
 - `GIFTX_NO_OPEN=1` skips opening the browser, `GIFTX_NO_SHORTCUT=1` skips the shortcut, and
   `GIFTX_DATA_DIR` moves the data folder.
 - Code: `src/giftx/` (Streamlit pages in `ui/`, SQLite in `storage.py`, the draw in `draw.py`, sending in
   `pipeline.py` and `senders.py`). The launcher is `run.py` (standard library only), wrapped by `run`
   and `run.cmd`.
-- The design is in `docs/designs/design_draft.md`; `HANDOFF.md` has the current status.
 - Screenshots: `uv run --group docs playwright install chromium` once, then
   `uv run --group docs python scripts/screenshots.py` regenerates everything in `docs/screenshots/`
   from a throwaway copy of the app filled with made-up people.

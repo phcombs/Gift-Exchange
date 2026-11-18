@@ -1,4 +1,4 @@
-"""M1 acceptance tests, written from docs/designs/design_draft.md section "M1: Skeleton".
+"""M1 acceptance tests: the skeleton (config, paths, guards, repo hygiene, page, launcher).
 
 No network, no server. Real-terminal criteria are checked by hand (see the verifier report).
 """
