@@ -58,6 +58,23 @@ CREATE TABLE sends (
 CREATE INDEX people_group ON people(group_id);
 """
 
+# version 2: fixed matches ("pins") chosen by the organizer before a draw
+PINS_SCHEMA = """
+CREATE TABLE pins (
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    giver_id INTEGER NOT NULL UNIQUE REFERENCES people(id) ON DELETE CASCADE,
+    recipient_id INTEGER NOT NULL UNIQUE REFERENCES people(id) ON DELETE CASCADE,
+    CHECK (giver_id <> recipient_id)
+);
+CREATE INDEX pins_group ON pins(group_id);
+"""
+
+
+def _run_script(conn, script):
+    for statement in script.split(";"):
+        if statement.strip():
+            conn.execute(statement)
+
 
 class StorageError(Exception):
     """Base class. The message is safe to show on the page."""
@@ -123,9 +140,11 @@ class Storage:
             if version > SCHEMA_VERSION:
                 raise NewerVersion()
             if version == 0:
-                for statement in SCHEMA.split(";"):
-                    if statement.strip():
-                        conn.execute(statement)
+                _run_script(conn, SCHEMA)
+                version = 1
+            if version == 1:  # upgrade: add fixed matches
+                _run_script(conn, PINS_SCHEMA)
+            if version < SCHEMA_VERSION:
                 conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     # ------------------------------------------------------------ helpers
@@ -277,6 +296,38 @@ class Storage:
                 "UPDATE people SET partner_id = NULL WHERE id = ? OR partner_id = ?", (pid, pid)
             )
 
+    # ------------------------------------------------------------ fixed matches (pins)
+
+    def list_pins(self, group_id):
+        """{giver_id: recipient_id} the organizer fixed for this group's next draw."""
+        with self._read() as conn:
+            return dict(conn.execute(
+                "SELECT giver_id, recipient_id FROM pins WHERE group_id = ?", (group_id,)
+            ).fetchall())
+
+    def set_pin(self, giver_id, recipient_id):
+        """Fix "giver buys for recipient". Replaces any pin of that giver or recipient; clears an
+        unlocked draw. Raises Locked."""
+        if giver_id == recipient_id:
+            raise StorageError("Someone can't buy for themselves.")
+        with self._write() as conn:
+            group = self._group_of(conn, giver_id)
+            if self._group_of(conn, recipient_id) != group:
+                raise StorageError("Both people must be in the same group.")
+            self._clear_unlocked_draw(conn, group)
+            conn.execute(
+                "DELETE FROM pins WHERE giver_id = ? OR recipient_id = ?", (giver_id, recipient_id)
+            )
+            conn.execute(
+                "INSERT INTO pins (group_id, giver_id, recipient_id) VALUES (?, ?, ?)",
+                (group, giver_id, recipient_id),
+            )
+
+    def remove_pin(self, giver_id):
+        with self._write() as conn:
+            self._clear_unlocked_draw(conn, self._group_of(conn, giver_id))
+            conn.execute("DELETE FROM pins WHERE giver_id = ?", (giver_id,))
+
     # ------------------------------------------------------------ draws
 
     def save_draw(self, group_id, assignment, now):
@@ -317,6 +368,31 @@ class Storage:
                 conn.execute(
                     "SELECT giver_id, recipient_id FROM assignments WHERE draw_id = ?", (draw_id,)
                 ).fetchall()
+            )
+
+    def update_assignment(self, group_id, assignment):
+        """Replace the matches of the group's unlocked draw (a manual change after drawing).
+
+        Must still be a full one-to-one draw of the group's people with nobody buying for themselves.
+        Practice records are deleted (their text names the old matches). Raises Locked.
+        """
+        with self._write() as conn:
+            row = self._draw_row(conn, group_id)
+            if row is None:
+                raise StorageError("There is no draw to change.")
+            if row[1] is not None:
+                raise Locked()
+            members = {
+                r[0] for r in conn.execute("SELECT id FROM people WHERE group_id = ?", (group_id,))
+            }
+            if set(assignment) != members or set(assignment.values()) != members:
+                raise StorageError("The changed draw doesn't match the group's people.")
+            if any(g == r for g, r in assignment.items()):
+                raise StorageError("Someone can't buy for themselves.")
+            conn.execute("DELETE FROM sends WHERE draw_id = ? AND mode = 'practice'", (row[0],))
+            conn.executemany(
+                "UPDATE assignments SET recipient_id = ? WHERE draw_id = ? AND giver_id = ?",
+                [(r, row[0], g) for g, r in assignment.items()],
             )
 
     def discard_draw(self, group_id):

@@ -48,7 +48,8 @@ def status_text(record):
 def do_draw(store, gid, people):
     partner_of = {p.id: p.partner_id for p in people if p.partner_id is not None}
     try:
-        assignment = make_draw([p.id for p in people], partner_of, random.SystemRandom())
+        pins = store.list_pins(gid)
+        assignment = make_draw([p.id for p in people], partner_of, random.SystemRandom(), pins)
         store.save_draw(gid, assignment, now_utc())
     except DrawImpossible as err:
         st.error(err.message)
@@ -56,8 +57,84 @@ def do_draw(store, gid, people):
     except StorageError as err:
         st.error(str(err))
         return
-    common.flash("Draw done. Everyone has a match; the matches stay hidden.")
+    fixed = f" {len(pins)} fixed, the rest drawn at random." if pins else ""
+    common.flash(f"Draw done.{fixed} The matches stay hidden.")
     st.rerun()
+
+
+def change_and_rerun(store, gid, action, message):
+    """Run a pin or match change; flash the message (and the draw-cleared notice if it cleared one)."""
+    had_draw = store.draw_status(gid)[0] is not None
+    try:
+        action()
+    except StorageError as err:
+        st.error(str(err))
+        return
+    if had_draw and store.draw_status(gid)[0] is None:
+        common.flash(common.DRAW_CLEARED, "warning")
+    common.flash(message)
+    st.rerun()
+
+
+def fixed_matches(store, gid, people, locked):
+    """Pins: "A buys for B" chosen before the draw; everyone else is drawn around them."""
+    pins = store.list_pins(gid)
+    names = {p.id: p.name for p in people}
+    partner = {p.id: p.partner_id for p in people}
+    label = f"Fixed matches ({len(pins)})" if pins else "Fixed matches (optional)"
+    with st.expander(label):
+        st.caption(
+            "Choose who buys for whom before drawing; everyone else is drawn at random around these. "
+            "Changing them clears the current draw."
+        )
+        for giver, recipient in sorted(pins.items(), key=lambda kv: names[kv[0]].casefold()):
+            left, right = st.columns([4, 1])
+            note = " (their partner)" if partner.get(giver) == recipient else ""
+            left.write(f"{names[giver]} buys for {names[recipient]}{note}")
+            if right.button("Remove", key=f"pin_remove_{giver}", disabled=locked):
+                change_and_rerun(store, gid, lambda g=giver: store.remove_pin(g),
+                                 f"{names[giver]} is drawn at random again.")
+        if locked or len(people) < 2:
+            return
+        free_givers = [p.id for p in people if p.id not in pins]
+        free_recipients = [p.id for p in people if p.id not in set(pins.values())]
+        left, right = st.columns(2)
+        giver = left.selectbox("Giver", free_givers, format_func=names.get, index=None,
+                               placeholder="Choose", key="pin_giver")
+        options = [r for r in free_recipients if r != giver]
+        recipient = right.selectbox("Buys for", options, format_func=names.get, index=None,
+                                    placeholder="Choose", key="pin_recipient")
+        if giver is not None and recipient is not None and partner.get(giver) == recipient:
+            st.caption(f"{names[giver]} and {names[recipient]} are a couple; a fixed match allows it.")
+        if st.button("Fix this match", key="pin_add", disabled=giver is None or recipient is None):
+            change_and_rerun(store, gid, lambda: store.set_pin(giver, recipient),
+                             f"Fixed: {names[giver]} buys for {names[recipient]}.")
+
+
+def change_match(store, gid, people, matches):
+    """After a draw (unlocked, revealed): give one giver a different recipient by swapping with the
+    giver who had that recipient, so everyone still gives once and receives once."""
+    names = {p.id: p.name for p in people}
+    st.markdown("**Change a match**")
+    st.caption("The person who had the new recipient gets this giver's old one instead.")
+    left, right = st.columns(2)
+    giver = left.selectbox("Giver", sorted(matches, key=lambda g: names[g].casefold()),
+                           format_func=names.get, index=None, placeholder="Choose", key="swap_giver")
+    options = [r for r in sorted(names, key=lambda i: names[i].casefold())
+               if giver is not None and r not in (giver, matches[giver])]
+    recipient = right.selectbox("Now buys for", options, format_func=names.get, index=None,
+                                placeholder="Choose", key="swap_recipient")
+    if st.button("Change", key="swap_go", disabled=giver is None or recipient is None):
+        other = next(g for g, r in matches.items() if r == recipient)
+        old = matches[giver]
+        if other == old:
+            st.error(f"That would leave {names[other]} buying for themselves. Pick someone else.")
+            return
+        updated = {**matches, giver: recipient, other: old}
+        change_and_rerun(
+            store, gid, lambda: store.update_assignment(gid, updated),
+            f"{names[giver]} now buys for {names[recipient]}; {names[other]} now buys for {names[old]}.",
+        )
 
 
 def draw_section(store, gid, people, draw_id, locked, givers):
@@ -69,6 +146,7 @@ def draw_section(store, gid, people, draw_id, locked, givers):
             st.error(problem.message)
     if locked:
         st.info("The draw is locked because emails have started going out.")
+    fixed_matches(store, gid, people, locked)
     label = "Draw again" if draw_id is not None else "Draw"
     if st.button(label, key="draw", type="primary", disabled=bool(problems) or locked):
         do_draw(store, gid, people)
@@ -78,13 +156,16 @@ def draw_section(store, gid, people, draw_id, locked, givers):
     # off in every new tab; recipients are read from the database only while it is on
     reveal = st.toggle("Reveal the matches", key=f"reveal_{gid}",
                        help="Shows who buys for whom on this screen. Off again in every new tab.")
-    if reveal:
-        names = {p.id: p.name for p in people}
-        matches = store.get_assignments(draw_id)
-        rows = [{"Giver": name, "Buys for": names[matches[pid]]} for pid, name in givers]
-    else:
-        rows = [{"Giver": name, "Buys for": HIDDEN} for _, name in givers]
-    st.dataframe(rows, hide_index=True, width="stretch")
+    if not reveal:
+        st.dataframe([{"Giver": name, "Buys for": HIDDEN} for _, name in givers],
+                     hide_index=True, width="stretch")
+        return
+    names = {p.id: p.name for p in people}
+    matches = store.get_assignments(draw_id)
+    st.dataframe([{"Giver": name, "Buys for": names[matches[pid]]} for pid, name in givers],
+                 hide_index=True, width="stretch")
+    if not locked:
+        change_match(store, gid, people, matches)
 
 
 # ------------------------------------------------------------------ sending

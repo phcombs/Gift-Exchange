@@ -39,7 +39,7 @@ def partners(store, gid):
 
 def test_new_file_gets_schema_version_1(store):
     con = sqlite3.connect(paths.db_path())
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 2
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     con.close()
     assert {"groups", "people", "draws", "assignments", "sends"} <= tables
@@ -49,7 +49,7 @@ def test_new_file_gets_schema_version_1(store):
 def test_newer_file_is_refused(tmp_path):
     db = tmp_path / "newer.sqlite3"
     con = sqlite3.connect(db)
-    con.execute("PRAGMA user_version = 2")
+    con.execute("PRAGMA user_version = 99")
     con.close()
     with pytest.raises(NewerVersion) as err:
         Storage(db)
@@ -197,3 +197,67 @@ def test_storage_is_the_only_module_importing_sqlite3():
         if "import sqlite3" in f.read_text(encoding="utf-8")
     ]
     assert users == ["storage.py"]
+
+
+# ---------------------------------------------------------------- fixed matches and manual changes
+
+def test_version_1_file_is_upgraded_with_its_data(tmp_path):
+    db = tmp_path / "v1.sqlite3"
+    s = Storage(db)
+    gid = s.create_group("G")
+    s.add_person(gid, "Ann", "ann@example.com")
+    con = sqlite3.connect(db)
+    con.execute("DROP TABLE pins")
+    con.execute("PRAGMA user_version = 1")
+    con.commit()
+    con.close()
+    upgraded = Storage(db)
+    assert [p.name for p in upgraded.list_people(gid)] == ["Ann"]
+    assert upgraded.list_pins(gid) == {}
+    con = sqlite3.connect(db)
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 2
+    con.close()
+
+
+def test_pins_replace_conflicts_and_clear_the_draw(store):
+    gid, (ann, bob, cy, dee) = group_with(store, "Ann", "Bob", "Cy", "Dee")
+    store.set_pin(ann, bob)
+    store.set_pin(cy, bob)  # Bob can only be bought for once: replaces Ann's pin
+    assert store.list_pins(gid) == {cy: bob}
+    store.set_pin(cy, dee)  # one pin per giver
+    assert store.list_pins(gid) == {cy: dee}
+    store.save_draw(gid, {ann: bob, bob: cy, cy: dee, dee: ann}, NOW)
+    store.remove_pin(cy)
+    assert store.list_pins(gid) == {}
+    assert store.draw_status(gid)[0] is None
+    with pytest.raises(Exception):
+        store.set_pin(ann, ann)
+
+
+def test_pins_go_with_deleted_people_and_are_locked_with_the_draw(store):
+    gid, (ann, bob, cy, dee) = group_with(store, "Ann", "Bob", "Cy", "Dee")
+    store.set_pin(ann, bob)
+    store.delete_person(bob)
+    assert store.list_pins(gid) == {}
+    store.save_draw(gid, {ann: cy, cy: dee, dee: ann}, NOW)
+    lock(store, gid)
+    with pytest.raises(Locked):
+        store.set_pin(ann, cy)
+
+
+def test_update_assignment_changes_matches_and_drops_practice_records(store):
+    gid, (ann, bob, cy) = group_with(store, "Ann", "Bob", "Cy")
+    draw_id = store.save_draw(gid, {ann: bob, bob: cy, cy: ann}, NOW)
+    from giftx.model import NewRecord
+    store.replace_practice_records(draw_id, [NewRecord(ann, "s", "b", None)])
+    store.update_assignment(gid, {ann: cy, cy: bob, bob: ann})
+    assert store.get_assignments(draw_id) == {ann: cy, cy: bob, bob: ann}
+    assert store.draw_status(gid)[0] == draw_id
+    assert store.status_rows(draw_id, "practice") == []
+    with pytest.raises(Exception):
+        store.update_assignment(gid, {ann: ann, bob: cy, cy: bob})
+    with pytest.raises(Exception):
+        store.update_assignment(gid, {ann: bob, bob: ann})  # Cy left out
+    lock(store, gid)
+    with pytest.raises(Locked):
+        store.update_assignment(gid, {ann: bob, bob: cy, cy: ann})

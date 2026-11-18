@@ -37,6 +37,12 @@ sent. Switch to **Real** mode when you're ready.
 **Pictures (optional):** on the **Images** page, add JPEG, PNG or GIF pictures (memes work well), up to
 2 MB each. Each email gets one at random, as an attachment. With no pictures, emails go without one.
 
+**Fixed matches:** on the Send page, open **Fixed matches** before drawing to choose who buys for whom
+for anyone you like; everyone else is drawn at random around them.
+
+**Changing a match:** after drawing, turn on **Reveal the matches** and use **Change a match** to give
+someone a different person (the two people involved swap). This works until real emails start going out.
+
 **Reveal:** the matches stay hidden, even from you, since the organizer is usually in the draw. If you
 need to see them, turn on **Reveal the matches** on the Send page. It's off again in every new tab.
 

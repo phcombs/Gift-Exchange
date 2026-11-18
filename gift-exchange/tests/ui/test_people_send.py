@@ -184,8 +184,83 @@ def test_delete_group_needs_confirmation():
 def test_newer_database_is_refused_on_the_page():
     paths.data_dir()
     con = sqlite3.connect(paths.db_path())
-    con.execute("PRAGMA user_version = 2")
+    con.execute("PRAGMA user_version = 99")
     con.close()
     at = AppTest.from_string(SCRIPT.format(module="people"))
     at.run(timeout=60)
     assert "This data was made by a newer version of the app." in [e.value for e in at.error]
+
+
+# ---------------------------------------------------------------- fixed matches and manual changes
+
+def test_fix_a_match_then_draw_keeps_it():
+    s, gid, (ann, bob, cy, dee) = make_group()
+    at = load("send", gid)
+    at.selectbox(key="pin_giver").select(ann)
+    rerun(at)
+    at.selectbox(key="pin_recipient").select(dee)
+    rerun(at)
+    at.button(key="pin_add").click()
+    rerun(at)
+    assert s.list_pins(gid) == {ann: dee}
+    assert "Fixed: Ann buys for Dee." in texts(at)
+    for _ in range(5):
+        at.button(key="draw").click()
+        rerun(at)
+        assert s.get_assignments(s.draw_status(gid)[0])[ann] == dee
+
+
+def test_remove_a_fixed_match():
+    s, gid, (ann, bob, cy, dee) = make_group()
+    s.set_pin(ann, dee)
+    at = load("send", gid)
+    at.button(key=f"pin_remove_{ann}").click()
+    rerun(at)
+    assert s.list_pins(gid) == {}
+
+
+def test_change_a_match_after_the_draw_swaps_with_the_other_giver():
+    s, gid, (ann, bob, cy, dee) = make_group()
+    draw_id = s.save_draw(gid, {ann: bob, bob: cy, cy: dee, dee: ann}, NOW)
+    at = load("send", gid)
+    at.toggle(key=f"reveal_{gid}").set_value(True)
+    rerun(at)
+    at.selectbox(key="swap_giver").select(ann)
+    rerun(at)
+    at.selectbox(key="swap_recipient").select(dee)
+    rerun(at)
+    at.button(key="swap_go").click()
+    rerun(at)
+    assert s.get_assignments(draw_id) == {ann: dee, bob: cy, cy: bob, dee: ann}
+    assert "Ann now buys for Dee; Cy now buys for Bob." in texts(at)
+
+
+def test_change_that_would_make_someone_draw_themselves_is_refused():
+    s, gid, (ann, bob, cy, dee) = make_group()
+    draw_id = s.save_draw(gid, {ann: bob, bob: cy, cy: dee, dee: ann}, NOW)
+    at = load("send", gid)
+    at.toggle(key=f"reveal_{gid}").set_value(True)
+    rerun(at)
+    at.selectbox(key="swap_giver").select(ann)  # Ann had Bob; Bob is bought for by Ann
+    rerun(at)
+    at.selectbox(key="swap_recipient").select(cy)  # Cy is bought for by Bob -> Bob would get Bob
+    rerun(at)
+    at.button(key="swap_go").click()
+    rerun(at)
+    assert any("buying for themselves" in e.value for e in at.error)
+    assert s.get_assignments(draw_id) == {ann: bob, bob: cy, cy: dee, dee: ann}
+
+
+def test_no_change_controls_while_hidden_or_locked():
+    s, gid, (ann, bob, cy, dee) = make_group()
+    s.save_draw(gid, {ann: bob, bob: cy, cy: dee, dee: ann}, NOW)
+    at = load("send", gid)
+    assert not [b for b in at.button if b.key == "swap_go"]
+    con = sqlite3.connect(s.db_path)
+    con.execute("UPDATE draws SET locked_at = 'x'")
+    con.commit()
+    con.close()
+    at = load("send", gid)
+    at.toggle(key=f"reveal_{gid}").set_value(True)
+    rerun(at)
+    assert not [b for b in at.button if b.key == "swap_go"]

@@ -6,4 +6,4 @@ def test_app_name():
 
 
 def test_schema_version():
-    assert giftx.SCHEMA_VERSION == 1
+    assert giftx.SCHEMA_VERSION == 2
