@@ -5,9 +5,8 @@ from datetime import datetime, timezone
 import streamlit as st
 
 from giftx import compose, paths, pipeline
-from giftx.model import Sent
+from giftx.model import Sent, Unknown
 from giftx.people import clean_email, email_problem
-from giftx.senders import PracticeSender
 from giftx.ui import common
 
 HELP = (
@@ -15,7 +14,6 @@ HELP = (
     "{giver} is required, {recipient} can't be in the subject. Keep {recipient} well down the body so "
     "it stays out of Gmail's inbox preview."
 )
-SIGN_IN_FIRST = "Sign in with Google first"
 
 
 def now_utc():
@@ -74,10 +72,11 @@ def test_send(subject, body, refused):
         "address you type. It never uses the draw."
     )
     to = st.text_input("Send test to", key="test_to", placeholder="you@example.com")
-    real = common.mode() == "real"
-    if real:
-        st.caption(SIGN_IN_FIRST)  # sign-in arrives with Gmail (M6)
-    if st.button("Send test email", key="test_send", disabled=real):
+    mode = common.mode()
+    sender = common.sender_for(mode)
+    if sender is None:
+        st.caption(common.NOT_READY)
+    if st.button("Send test email", key="test_send", disabled=sender is None):
         reason = email_problem(to)
         if reason:
             st.error(reason)
@@ -85,16 +84,20 @@ def test_send(subject, body, refused):
         if refused:
             st.error("Fix the message first: " + " ".join(p.message for p in refused))
             return
-        sender = PracticeSender()
-        result = pipeline.test_send(sender, clean_email(to), subject, body, None, now_utc)
+        with st.spinner("Sending…" if mode == "real" else "Writing…"):
+            result = pipeline.test_send(sender, clean_email(to), subject, body, None, now_utc)
         if isinstance(result, Sent):
-            st.success(
-                "Practice email written (nothing was sent). It's in "
-                f"{paths.practice_test_dir()}"
-            )
+            if mode == "real":
+                st.success(f"Test email sent to {clean_email(to)}.")
+            else:
+                st.success(
+                    "Practice email written (nothing was sent). It's in "
+                    f"{paths.practice_test_dir()}"
+                )
+        elif isinstance(result, Unknown):
+            st.warning(f"The test email may or may not have gone: {result.reason}. Check your Sent folder.")
         else:
             st.error(f"The test email failed: {result.reason}")
-
 
 def page():
     common.banner()

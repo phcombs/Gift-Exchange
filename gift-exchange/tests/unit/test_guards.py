@@ -1,11 +1,9 @@
 import os
+import smtplib
 import socket
 from pathlib import Path
 
 import pytest
-
-from giftx import auth, gmail
-
 
 def test_connect_is_blocked():
     s = socket.socket()
@@ -30,14 +28,14 @@ def test_create_connection_is_blocked():
         socket.create_connection(("127.0.0.1", 9))
 
 
-def test_gmail_sender_is_blocked():
+def test_smtp_is_blocked():
     with pytest.raises(pytest.fail.Exception):
-        gmail.GmailSender(object())
+        smtplib.SMTP("smtp.example.com", 587)
 
 
-def test_sign_in_is_blocked():
+def test_smtp_ssl_is_blocked():
     with pytest.raises(pytest.fail.Exception):
-        auth.sign_in()
+        smtplib.SMTP_SSL("smtp.example.com", 465)
 
 
 def test_data_dir_is_inside_tmp_path(tmp_path):

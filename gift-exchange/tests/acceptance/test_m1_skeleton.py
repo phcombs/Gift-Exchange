@@ -146,8 +146,8 @@ def test_no_other_src_file_names_the_folder_or_variable():
 # ---------------------------------------------------------------- guards (done item 9)
 
 GUARD_TESTS = textwrap.dedent('''
+    import smtplib
     import socket
-    from giftx import gmail, auth
 
     def test_socket_connect():
         s = socket.socket()
@@ -160,11 +160,11 @@ GUARD_TESTS = textwrap.dedent('''
     def test_create_connection():
         socket.create_connection(("127.0.0.1", 9))
 
-    def test_gmail_sender():
-        gmail.GmailSender(object())
+    def test_smtp():
+        smtplib.SMTP("smtp.example.com", 587)
 
-    def test_sign_in():
-        auth.sign_in()
+    def test_smtp_ssl():
+        smtplib.SMTP_SSL("smtp.example.com", 465)
 
     def test_swallowed_by_broad_except_still_fails():
         try:
@@ -174,7 +174,7 @@ GUARD_TESTS = textwrap.dedent('''
 ''')
 
 
-def test_suite_fails_tests_that_open_sockets_build_gmailsender_or_sign_in(tmp_path):
+def test_suite_fails_tests_that_open_sockets_or_smtp_connections(tmp_path):
     shutil.copy(REPO / "tests" / "conftest.py", tmp_path / "conftest.py")
     (tmp_path / "test_probe.py").write_text(GUARD_TESTS, encoding="utf-8")
     r = subprocess.run(
@@ -194,9 +194,11 @@ def test_guard_data_dir_points_inside_test_tmp(tmp_path):
     assert Path(os.environ["GIFTX_DATA_DIR"]).resolve().is_relative_to(tmp_path.resolve().parent)
 
 
-def test_stub_modules_raise_and_do_not_import_oauth_at_import_time():
-    src = (REPO / "src/giftx/gmail.py").read_text() + (REPO / "src/giftx/auth.py").read_text()
-    assert "import google_auth_oauthlib" not in src and "from google_auth_oauthlib" not in src
+def test_no_google_client_libraries_in_src():
+    # real email goes over SMTP with an app password since 2026-11-17; no Google sign-in code remains
+    for f in (REPO / "src").rglob("*.py"):
+        text = f.read_text(encoding="utf-8")
+        assert "import google" not in text and "from google" not in text, f
 
 
 # ---------------------------------------------------------------- repo hygiene (done item 10)
@@ -273,8 +275,8 @@ def test_page_shows_only_the_practice_banner_on_first_load():
     at = _load()
     assert [i.value for i in at.info] == [PRACTICE]
     assert len(at.warning) == 0 and len(at.error) == 0
-    # nothing else in the main area
-    assert [type(e).__name__ for e in at.main] == ["Info"] or len(at.main.children) == 1
+    # the banner comes first (since M6 the Setup page also holds the email account form)
+    assert at.main.children[0].value == PRACTICE
 
 
 def test_sidebar_mode_switch_defaults_to_practice_with_two_options():

@@ -51,6 +51,10 @@ def client_file() -> Path:
     return _root() / "client.json"
 
 
+def email_settings_file() -> Path:
+    return _root() / "email.json"
+
+
 def images_dir() -> Path:
     return _root() / "images"
 

@@ -42,7 +42,8 @@ def test_mode_defaults_to_practice():
     assert at.sidebar.radio(key="mode").value == "practice"
 
 
-def test_main_area_holds_only_the_banner():
+def test_setup_page_starts_with_the_banner():
     at = load()
-    assert len(at.main.children) == 1
+    assert type(at.main.children[0]).__name__ == "Info"
+    assert at.main.children[0].value == PRACTICE
     assert len(at.info) == 1

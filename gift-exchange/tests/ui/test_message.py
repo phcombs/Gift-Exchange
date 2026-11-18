@@ -133,10 +133,10 @@ def test_test_send_needs_a_valid_address():
     assert not paths.practice_test_dir().exists()
 
 
-def test_real_mode_test_send_waits_for_sign_in():
+def test_real_mode_test_send_waits_for_email_setup():
     s, gid = group()
     at = load(gid)
     at.sidebar.radio(key="mode").set_value("real")
     rerun(at)
     assert at.button(key="test_send").disabled
-    assert "Sign in with Google first" in [c.value for c in at.caption]
+    assert "Set up your email account on the Setup page first" in [c.value for c in at.caption]

@@ -76,13 +76,13 @@ def test_cancel_closes_the_confirm_step():
     assert not paths.practice_dir(gid).exists()
 
 
-def test_real_mode_send_buttons_wait_for_sign_in():
+def test_real_mode_send_buttons_wait_for_email_setup():
     s, gid, ids, draw_id = drawn_group()
     at = load(gid)
     at.sidebar.radio(key="mode").set_value("real")
     rerun(at)
     assert at.button(key="send_all").disabled
-    assert "Sign in with Google first" in [c.value for c in at.caption]
+    assert "Set up your email account on the Setup page first" in [c.value for c in at.caption]
 
 
 def test_recovery_runs_once_per_process_and_database(clock):

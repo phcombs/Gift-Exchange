@@ -1,7 +1,7 @@
 import streamlit as st
 
-from giftx import paths
-from giftx.senders import PracticeSender
+from giftx import account, paths
+from giftx.senders import PracticeSender, SmtpSender
 from giftx.storage import Storage
 
 PRACTICE_TEXT = "Practice mode: nothing is emailed"
@@ -26,11 +26,37 @@ def store():
     return Storage(paths.db_path())
 
 
+NOT_READY = "Set up your email account on the Setup page first"
+
+
+@st.cache_resource
+def _password_holder(settings_path):
+    # one per server process and data folder: the app password typed this session (not remembered)
+    return {}
+
+
+def password_holder():
+    return _password_holder(str(paths.email_settings_file()))
+
+
+def email_ready():
+    """(settings, password) when real mode can send, else None."""
+    settings = account.load()
+    if settings is None:
+        return None
+    password = settings.password or password_holder().get("password")
+    return (settings, password) if password else None
+
+
 def sender_for(mode):
-    """The sender for this mode, or None while real mode has no signed-in Gmail (M6)."""
+    """The sender for this mode, or None while real mode has no email account set up."""
     if mode == "practice":
         return PracticeSender()
-    return None
+    ready = email_ready()
+    if ready is None:
+        return None
+    settings, password = ready
+    return SmtpSender(settings.host, settings.port, settings.security, settings.address, password)
 
 
 def group_id():
@@ -53,7 +79,9 @@ def show_flash():
 
 
 def setup_page():
-    banner()
+    from giftx.ui import setup
+
+    setup.page()
 
 
 def people_page():

@@ -48,17 +48,15 @@ def _network_guard(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _google_guard(monkeypatch):
-    from giftx import auth, gmail
+def _smtp_guard(monkeypatch):
+    """No test may open a real SMTP connection; tests that send replace senders.open_connection."""
+    import smtplib
 
-    def blocked_init(*args, **kwargs):
-        pytest.fail("GmailSender was built during a test")
+    def blocked(*args, **kwargs):
+        pytest.fail("a real SMTP connection was opened during a test")
 
-    def blocked_sign_in(*args, **kwargs):
-        pytest.fail("auth.sign_in was called during a test")
-
-    monkeypatch.setattr(gmail.GmailSender, "__init__", blocked_init)
-    monkeypatch.setattr(auth, "sign_in", blocked_sign_in)
+    monkeypatch.setattr(smtplib.SMTP, "__init__", blocked)
+    monkeypatch.setattr(smtplib.SMTP_SSL, "__init__", blocked)
 
 
 # ---------------------------------------------------------------- M5: fake sender and fixed clock
@@ -106,3 +104,46 @@ def clock():
 
     fixed = datetime(2026, 11, 15, 1, 30, tzinfo=timezone.utc)
     return lambda: fixed
+
+
+# ---------------------------------------------------------------- M6: fake SMTP server
+
+class FakeSMTP:
+    """Stands in for an SMTP connection. Set login_error / send_error to an exception to fail."""
+
+    def __init__(self):
+        self.login_error = self.send_error = None
+        self.logins, self.sent, self.calls = [], [], []
+        self.closed = False
+
+    def login(self, user, password):
+        self.logins.append((user, password))
+        if self.login_error:
+            raise self.login_error
+
+    def sendmail(self, from_addr, to_addrs, raw):
+        if self.send_error:
+            raise self.send_error
+        self.sent.append((from_addr, to_addrs, raw))
+        return {}
+
+    def quit(self):
+        self.closed = True
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.fixture
+def smtp_server(monkeypatch):
+    """Replace senders.open_connection with a fake server; returns it."""
+    from giftx import senders
+
+    fake = FakeSMTP()
+
+    def connect(host, port, security, timeout=None):
+        fake.calls.append((host, port, security))
+        return fake
+
+    monkeypatch.setattr(senders, "open_connection", connect)
+    return fake

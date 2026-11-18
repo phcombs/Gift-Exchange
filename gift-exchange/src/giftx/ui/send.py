@@ -12,7 +12,6 @@ from giftx.storage import StorageError
 from giftx.ui import common
 
 HIDDEN = "match hidden"
-SIGN_IN_FIRST = "Sign in with Google first"
 
 
 def now_utc():
@@ -143,6 +142,10 @@ def confirm_panel(store, gid, group_name, draw_id, mode, sender, rows):
         )
         if mode == "practice":
             st.caption("Practice: each email is written to a file in your data folder. Nothing is sent.")
+        else:
+            ready = common.email_ready()
+            if ready:
+                st.caption(f"Real: these emails go out from {ready[0].address} now.")
         st.dataframe(
             [{"Giver": name, "Address": address} for name, address in rows],
             hide_index=True,
@@ -213,7 +216,7 @@ def send_section(store, gid, group_name, people, draw_id, locked):
     sender = common.sender_for(mode)
     st.subheader("Send")
     if sender is None:
-        st.caption(SIGN_IN_FIRST)
+        st.caption(common.NOT_READY)
     rows = to_send(store, gid, draw_id, mode, locked, people)
     if mode == "real" and locked and not rows:
         st.success("Everyone has been sent their email.")

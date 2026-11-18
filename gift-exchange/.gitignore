@@ -6,6 +6,7 @@ secrets/
 client_secret*.json
 *.token.json
 client.json
+email.json
 *.eml
 practice/
 
