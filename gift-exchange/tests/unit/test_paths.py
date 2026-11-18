@@ -14,19 +14,48 @@ def test_data_dir_uses_env_and_creates(monkeypatch, tmp_path):
     assert target.is_dir()
 
 
-@pytest.mark.parametrize("unset", [True, False], ids=["unset", "empty"])
-def test_data_dir_default_when_unset_or_empty(monkeypatch, tmp_path, unset):
+def fake_home(monkeypatch, tmp_path, platform):
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(paths, "_platform", lambda: platform)
+    monkeypatch.delenv("APPDATA", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    return home
+
+
+@pytest.mark.parametrize("unset", [True, False], ids=["unset", "empty"])
+@pytest.mark.parametrize(
+    "platform,relative",
+    [
+        ("darwin", "Library/Application Support/Gift Exchange"),
+        ("win32", "AppData/Roaming/Gift Exchange"),
+        ("linux", ".local/share/gift-exchange"),
+    ],
+)
+def test_data_dir_default_when_unset_or_empty(monkeypatch, tmp_path, unset, platform, relative):
+    home = fake_home(monkeypatch, tmp_path, platform)
     if unset:
         monkeypatch.delenv("GIFTX_DATA_DIR", raising=False)
     else:
         monkeypatch.setenv("GIFTX_DATA_DIR", "")
-    expected = home / "Library/Application Support/Gift Exchange"
+    expected = home / relative
     assert paths.data_dir() == expected
     assert expected.is_dir()
+
+
+def test_windows_uses_appdata(monkeypatch, tmp_path):
+    fake_home(monkeypatch, tmp_path, "win32")
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
+    assert paths.default_root() == tmp_path / "roaming" / "Gift Exchange"
+
+
+def test_linux_uses_absolute_xdg_data_home_only(monkeypatch, tmp_path):
+    home = fake_home(monkeypatch, tmp_path, "linux")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    assert paths.default_root() == tmp_path / "xdg" / "gift-exchange"
+    monkeypatch.setenv("XDG_DATA_HOME", "relative/dir")
+    assert paths.default_root() == home / ".local/share/gift-exchange"
 
 
 def test_derived_paths_and_no_creation(monkeypatch, tmp_path):

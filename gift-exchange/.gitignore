@@ -1,0 +1,17 @@
+# Private data: never in git
+data/
+.env
+secrets/
+*.sqlite*
+client_secret*.json
+*.token.json
+client.json
+*.eml
+practice/
+
+# Python and tools
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.uv-bootstrap/

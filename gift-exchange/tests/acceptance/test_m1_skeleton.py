@@ -80,19 +80,35 @@ def test_data_dir_returns_giftx_data_dir_when_set(monkeypatch, tmp_path):
     assert target.is_dir()
 
 
-def test_data_dir_defaults_to_application_support(monkeypatch, tmp_path):
-    monkeypatch.delenv("GIFTX_DATA_DIR", raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path))
+PLATFORM_FOLDERS = [
+    ("darwin", "Library/Application Support/Gift Exchange"),
+    ("win32", "AppData/Roaming/Gift Exchange"),
+    ("linux", ".local/share/gift-exchange"),
+]
+
+
+def _os_home(monkeypatch, tmp_path, platform):
     from giftx import paths
-    assert paths.data_dir() == tmp_path / "Library/Application Support/Gift Exchange"
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(paths, "_platform", lambda: platform)
+    monkeypatch.delenv("APPDATA", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    return paths
+
+
+@pytest.mark.parametrize("platform,relative", PLATFORM_FOLDERS)
+def test_data_dir_defaults_to_the_os_user_data_folder(monkeypatch, tmp_path, platform, relative):
+    monkeypatch.delenv("GIFTX_DATA_DIR", raising=False)
+    paths = _os_home(monkeypatch, tmp_path, platform)
+    assert paths.data_dir() == tmp_path / relative
     assert paths.data_dir().is_dir()
 
 
-def test_empty_giftx_data_dir_counts_as_unset(monkeypatch, tmp_path):
+@pytest.mark.parametrize("platform,relative", PLATFORM_FOLDERS)
+def test_empty_giftx_data_dir_counts_as_unset(monkeypatch, tmp_path, platform, relative):
     monkeypatch.setenv("GIFTX_DATA_DIR", "")
-    monkeypatch.setenv("HOME", str(tmp_path))
-    from giftx import paths
-    assert paths.data_dir() == tmp_path / "Library/Application Support/Gift Exchange"
+    paths = _os_home(monkeypatch, tmp_path, platform)
+    assert paths.data_dir() == tmp_path / relative
 
 
 def test_derived_paths_and_no_folder_created_by_them(monkeypatch, tmp_path):
@@ -306,44 +322,46 @@ def test_new_session_defaults_back_to_practice():
 
 # ---------------------------------------------------------------- run script (offline parts)
 
-def test_run_is_committed_executable():
-    out = subprocess.run(["git", "ls-files", "-s", "run", "scripts/smoke_run.sh"], cwd=REPO,
-                         capture_output=True, text=True, check=True).stdout
-    assert out.splitlines()[0].startswith("100755 ")
-    assert os.access(REPO / "run", os.X_OK)
+def _launcher():
+    spec = importlib.util.spec_from_file_location("run_accept", REPO / "run.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
-def test_run_script_syntax():
-    assert subprocess.run(["bash", "-n", str(REPO / "run")]).returncode == 0
-    assert subprocess.run(["sh", "-n", str(REPO / "scripts/smoke_run.sh")]).returncode == 0
+def test_launchers_exist_for_every_os_and_shell_wrapper_is_executable():
+    out = subprocess.run(["git", "ls-files", "-s", "run", "run.py", "run.cmd", "scripts/smoke_run.py"],
+                         cwd=REPO, capture_output=True, text=True, check=True).stdout
+    modes = {line.split("\t")[1]: line.split()[0] for line in out.splitlines()}
+    assert set(modes) == {"run", "run.py", "run.cmd", "scripts/smoke_run.py"}
+    assert modes["run"] == "100755"
+
+
+def test_launcher_uses_only_the_standard_library():
+    import ast
+    tree = ast.parse((REPO / "run.py").read_text(encoding="utf-8"))
+    names = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
+    names |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
+    assert names <= set(sys.stdlib_module_names), names - set(sys.stdlib_module_names)
 
 
 def test_run_pins_the_uv_version_that_is_installed_here():
-    text = (REPO / "run").read_text()
-    m = re.search(r"^UV_VERSION=(\S+)$", text, re.M)
+    m = re.search(r'^UV_VERSION = "(\S+)"$', (REPO / "run.py").read_text(encoding="utf-8"), re.M)
     assert m
     out = subprocess.run(["uv", "--version"], capture_output=True, text=True).stdout
     assert out.split()[1] == m.group(1)
 
 
-def test_run_while_app_already_running_prints_message_opens_page_and_calls_no_uv(tmp_path):
-    stubs, home, log = tmp_path / "stubs", tmp_path / "home", tmp_path / "log"
-    stubs.mkdir(); home.mkdir()
-    for name, body in {
-        "curl": 'echo "curl $*" >> "$LOG"; exit 0',
-        "open": 'echo "open $*" >> "$LOG"',
-        "uv": 'echo "uv $*" >> "$LOG"; exit 0',
-    }.items():
-        (stubs / name).write_text(f"#!/bin/sh\n{body}\n")
-        (stubs / name).chmod(0o755)
-    work = tmp_path / "w"
-    work.mkdir()
-    shutil.copy2(REPO / "run", work / "run")
-    (work / "streamlit_app.py").write_text("")
-    env = {"PATH": f"{stubs}:/usr/bin:/bin", "HOME": str(home), "LOG": str(log)}
-    r = subprocess.run(["bash", str(work / "run")], env=env, capture_output=True, text=True, timeout=30)
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "The app is already running" in r.stdout
-    calls = log.read_text()
-    assert "open http://localhost:8501" in calls
-    assert "uv " not in calls
+def test_run_while_app_already_running_prints_message_opens_page_and_calls_no_uv(monkeypatch, capsys, tmp_path):
+    run = _launcher()
+    calls = []
+    monkeypatch.setattr(run, "HERE", tmp_path)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GIFTX_NO_OPEN", raising=False)
+    monkeypatch.setattr(run, "health_ok", lambda timeout=1.0: True)
+    monkeypatch.setattr(run.webbrowser, "open", lambda url: calls.append("open " + url))
+    monkeypatch.setattr(run.subprocess, "run", lambda *a, **k: calls.append("subprocess"))
+    monkeypatch.setattr(run.subprocess, "Popen", lambda *a, **k: calls.append("subprocess"))
+    assert run.main() == 0
+    assert "The app is already running" in capsys.readouterr().out
+    assert calls == ["open http://localhost:8501"]

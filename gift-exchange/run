@@ -1,52 +1,11 @@
-#!/bin/bash
-# Starts Gift Exchange: ./run
-UV_VERSION=0.13.8
-URL=http://localhost:8501
-
+#!/bin/sh
+# Starts Gift Exchange on macOS or Linux: ./run   (the same as: python3 run.py)
 cd "$(dirname "$0")" || exit 1
-
-if command -v uv >/dev/null 2>&1; then
-  UV=uv
-elif [ -x "$HOME/.local/bin/uv" ]; then
-  UV="$HOME/.local/bin/uv"
-else
-  echo "Installing uv (one time)…"
-  curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" | env UV_NO_MODIFY_PATH=1 sh
-  UV="$HOME/.local/bin/uv"
-  if [ ! -x "$UV" ]; then
-    echo "Could not install uv. Check your internet connection and try again."
-    exit 1
-  fi
+if command -v python3 >/dev/null 2>&1; then
+  exec python3 run.py "$@"
 fi
-
-if curl -fsS "$URL/_stcore/health" >/dev/null 2>&1; then
-  echo "The app is already running: opening $URL"
-  open "$URL"
-  exit 0
+if command -v python >/dev/null 2>&1; then
+  exec python run.py "$@"
 fi
-
-"$UV" sync --frozen || exit 1
-
-"$UV" run --frozen streamlit run streamlit_app.py &
-PID=$!
-trap 'kill $PID 2>/dev/null' INT TERM EXIT
-
-up=0
-for _ in $(seq 1 60); do
-  if curl -fsS "$URL/_stcore/health" >/dev/null 2>&1; then
-    up=1
-    break
-  fi
-  sleep 0.5
-done
-
-if [ "$up" = 1 ]; then
-  if [ "${GIFTX_NO_OPEN:-}" != 1 ]; then
-    open "$URL"
-  fi
-else
-  echo "The app did not start. The messages above say why."
-  exit 1
-fi
-
-wait $PID
+echo "Gift Exchange needs Python 3. Install it from https://www.python.org/downloads/ and try again."
+exit 1
