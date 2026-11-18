@@ -9,43 +9,54 @@ up everything it needs (this needs an internet connection and takes a minute or 
 
 ## 1. Get the app
 
-**Easiest (no tools needed):** on the [GitHub page](https://github.com/phcombs/Gift-Exchange), click the
-green **Code** button, then **Download ZIP**. Unzip it (Windows: right-click → **Extract All**; Mac:
-double-click the zip). Open the folder it makes, then the **gift-exchange** folder inside it.
+**Easiest (no tools needed):**
+
+1. On the [GitHub page](https://github.com/phcombs/Gift-Exchange), click the green **Code** button, then
+   **Download ZIP**.
+2. Unzip it. Windows: right-click the zip → **Extract All** → **Extract**. Mac: double-click the zip.
+3. Move the unzipped **Gift-Exchange** folder somewhere you'll keep it, such as your Documents folder.
+   (The app runs from this folder, and the shortcut it makes points here.)
 
 **With git:**
 
 ```text
 git clone https://github.com/phcombs/Gift-Exchange.git
-cd Gift-Exchange/gift-exchange
+cd Gift-Exchange
 ```
 
 ## 2. Start it
 
+Open the **Gift-Exchange** folder and:
+
 | System | How |
 |---|---|
-| **Windows** | Double-click **`run.cmd`** in the gift-exchange folder. |
-| **macOS** | Double-click **`run`** in the gift-exchange folder. Or in Terminal: `./run` |
-| **Linux** | In a terminal, in the gift-exchange folder: `./run` |
+| **Windows** | Double-click **`run.cmd`** |
+| **macOS** | Double-click **`run`**, or in Terminal type `./run` |
+| **Linux** | In a terminal in the folder, type `./run` |
 
-A black terminal window opens and shows progress. Your browser then opens the app at
-<http://localhost:8501>.
+A terminal window opens and shows progress, then your browser opens the app at
+<http://localhost:8501>. Keep the terminal window open while you use the app.
 
-**The first start** downloads what the app needs, once: a small tool called
-[uv](https://docs.astral.sh/uv/), Python 3.12 (just for this app) and the app's packages. This takes a
-minute or two. Later starts take a few seconds. Nothing is installed system-wide and no admin rights
-are needed. If you already have Python 3.8 or newer, it's used to start, and the rest is still set up
-privately.
+**The first start** sets up what the app needs, once: a small tool called
+[uv](https://docs.astral.sh/uv/), Python 3.12 (just for this app) and the app's packages. It needs an
+internet connection and takes a minute or two. Later starts take a few seconds. Nothing is installed
+system-wide and no admin rights are needed.
 
-**To stop the app,** close the terminal window (or press **Ctrl+C** in it). To start it again later, do
-step 2 again; your groups, people and settings are kept.
+**A shortcut** called **Gift Exchange** is added the first time the app starts: on your desktop and in
+the Start menu (Windows), on your desktop (Mac), or in your applications menu (Linux). Use it to start
+the app from then on. If you delete the shortcut it isn't added back; if you move the app folder, the
+next start from the folder updates it.
+
+**To stop the app,** close the terminal window (or press **Ctrl+C** in it). Your groups, people and
+settings are kept for next time.
 
 If your computer warns you the first time:
 
-- **Windows** ("Windows protected your PC"): click **More info**, then **Run anyway**.
+- **Windows** ("Windows protected your PC"): click **More info**, then **Run anyway**. This appears
+  because the file came from the internet; it's a plain text script you can open in Notepad to read.
 - **macOS** ("can't be opened because it is from an unidentified developer"): right-click `run`, choose
   **Open**, then **Open** again. If it opens as text instead, open Terminal, type `cd ` (with a space),
-  drag the gift-exchange folder into the window, press Enter, then type `sh run` and press Enter.
+  drag the Gift-Exchange folder into the window, press Enter, then type `sh run` and press Enter.
 
 ## 3. Run your exchange
 
@@ -128,10 +139,11 @@ Names, addresses, draws and email settings stay on your computer, outside the ap
 Everything is in one file, `giftx.sqlite3`; back it up by copying it. Practice emails are in the
 `practice` folder next to it. Set the `GIFTX_DATA_DIR` environment variable to use another folder.
 
-**Updating:** download the new ZIP (or `git pull`) and start it the same way. Your data is kept, because
-it lives outside the app folder.
+**Updating:** download the new ZIP, replace the old app folder with the new one (same place), and start
+it the same way; or run `git pull` in the folder. Your data is kept, because it lives outside the app
+folder.
 
-**Removing it:** delete the app folder and the data folder above. To remove uv as well, delete `uv.exe`
+**Removing it:** delete the app folder, the data folder above and the **Gift Exchange** shortcut. To remove uv as well, delete `uv.exe`
 from `%USERPROFILE%\.local\bin` (Windows) or `~/.local/bin/uv` (Mac/Linux), and its downloads with
 `uv cache clean` beforehand if you like. Delete the app password in your Google account.
 
@@ -139,6 +151,8 @@ from `%USERPROFILE%\.local\bin` (Windows) or `~/.local/bin/uv` (Mac/Linux), and 
 
 - **The browser didn't open:** go to <http://localhost:8501> yourself.
 - **"The app is already running"**: it's open in another window; the browser tab opens again.
+- **The shortcut does nothing or points to the wrong place:** start once from the app folder
+  (`run.cmd` or `run`); that updates the shortcut.
 - **The terminal window closed right away (Windows):** start `run.cmd` from a terminal to see the
   message, or check your internet connection for the first start.
 - **"The server refused the sign-in"**: use the app password, not your normal password, and check that
@@ -151,8 +165,13 @@ from `%USERPROFILE%\.local\bin` (Windows) or `~/.local/bin/uv` (Mac/Linux), and 
 
 ## For developers
 
-From `gift-exchange/`: run the tests with `uv run --frozen pytest -q`, or start with `python run.py`.
-The design is in `gift-exchange/docs/designs/design_draft.md`; `HANDOFF.md` has the current status.
+- Run the tests with `uv run --frozen pytest -q` (or `sh .team/check.sh`); start with `python run.py`.
+- `GIFTX_NO_OPEN=1` skips opening the browser, `GIFTX_NO_SHORTCUT=1` skips the shortcut, and
+  `GIFTX_DATA_DIR` moves the data folder.
+- Code: `src/giftx/` (Streamlit pages in `ui/`, SQLite in `storage.py`, the draw in `draw.py`, sending in
+  `pipeline.py` and `senders.py`). The launcher is `run.py` (standard library only), wrapped by `run`
+  and `run.cmd`.
+- The design is in `docs/designs/design_draft.md`; `HANDOFF.md` has the current status.
 
 ---
 
