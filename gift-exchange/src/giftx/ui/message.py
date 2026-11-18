@@ -14,7 +14,8 @@ from giftx.ui import common
 HELP = (
     "Use **{giver}** for the person receiving the email and **{recipient}** for the person they buy for. "
     "{giver} is required, {recipient} can't be in the subject. Keep {recipient} well down the body so "
-    "it stays out of Gmail's inbox preview."
+    "it stays out of Gmail's inbox preview. If you've added pictures, each email shows one inside the "
+    "message: at the end, or wherever you put **{picture}**."
 )
 
 
@@ -62,9 +63,17 @@ def show_preview(subject, body):
     st.subheader("Preview")
     st.caption(f"Filled in with made-up names: {compose.PREVIEW_GIVER} buys for {compose.PREVIEW_RECIPIENT}.")
     p_subject, p_body = compose.preview(subject, body)
+    pictures = images.list_images()
     with st.container(border=True):
         st.text(f"Subject: {p_subject}")
-        st.text(p_body)
+        st.text(compose.preview_text(p_body))
+        if pictures and compose.PICTURE not in body:
+            st.text("[picture]")
+    if pictures:
+        st.caption(
+            f"[picture] marks where one of your {len(pictures)} "
+            f"{'picture' if len(pictures) == 1 else 'pictures'} appears. Send a test email to see it."
+        )
 
 
 def test_send(subject, body, refused):

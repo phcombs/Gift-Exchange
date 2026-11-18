@@ -162,4 +162,6 @@ def test_test_send_attaches_a_picture_when_the_library_has_one():
     rerun(at)
     (eml,) = paths.practice_test_dir().iterdir()
     msg = message_from_bytes(eml.read_bytes(), policy=default)
-    assert [a.get_filename() for a in msg.iter_attachments()] == ["picture.png"]
+    from giftx import compose
+
+    assert [i[0] for i in compose.inline_images(msg)] == ["picture.png"]

@@ -9,7 +9,7 @@ from email.policy import default
 
 import pytest
 
-from giftx import images, paths, pipeline
+from giftx import compose, images, paths, pipeline
 from giftx.model import Problem
 from giftx.senders import PracticeSender
 from giftx.storage import Storage
@@ -37,7 +37,7 @@ def test_renamed_text_file_and_big_file_are_refused():
     assert isinstance(images.check_image(b"hello, I am a text file"), Problem)
     big = b"\x89PNG\r\n\x1a\n" + b"\0" * images.MAX_BYTES
     problem = images.check_image(big)
-    assert isinstance(problem, Problem) and "2 MB" in problem.message
+    assert isinstance(problem, Problem) and "10 MB" in problem.message
 
 
 def test_save_names_by_content_and_keeps_one_copy():
@@ -81,7 +81,7 @@ def test_no_images_means_no_picture_on_records(drawn):
     assert {r.image_name for r in s.status_rows(draw_id, "practice")} == {None}
 
 
-def test_each_record_gets_one_frozen_picture_and_each_email_one_attachment(drawn):
+def test_each_record_gets_one_frozen_picture_shown_inline_in_each_email(drawn):
     s, gid, draw_id = drawn
     names = {images.save_image(png(1)), images.save_image(GIF)}
     pipeline.prepare_practice(s, gid, random.Random(1))
@@ -92,8 +92,8 @@ def test_each_record_gets_one_frozen_picture_and_each_email_one_attachment(drawn
     pipeline.run_sends(s, draw_id, "practice", PracticeSender(), lambda: NOW)
     for eml in paths.practice_dir(gid).iterdir():
         msg = message_from_bytes(eml.read_bytes(), policy=default)
-        attachments = list(msg.iter_attachments())
-        assert len(attachments) == 1 and attachments[0].get_filename().startswith("picture.")
+        shown = compose.inline_images(msg)
+        assert len(shown) == 1 and shown[0][0].startswith("picture.")
 
 
 def test_in_use_until_new_exchange(drawn):

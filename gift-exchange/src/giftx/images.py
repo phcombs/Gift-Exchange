@@ -9,7 +9,7 @@ import hashlib
 from giftx import paths
 from giftx.model import Problem
 
-MAX_BYTES = 2 * 1024 * 1024  # 2 MB: about 2.7 MB once base64-encoded in the email
+MAX_BYTES = 10 * 1024 * 1024  # 10 MB: about 13.4 MB once base64-encoded, under Gmail's 25 MB per email
 
 _SIGNATURES = [
     (b"\xff\xd8\xff", "jpg"),
@@ -24,7 +24,7 @@ def check_image(data):
     """The extension for this picture, or a Problem saying why it can't be used."""
     if len(data) > MAX_BYTES:
         size = len(data) / (1024 * 1024)
-        return Problem("too_big", f"The picture is {size:.1f} MB; the limit is 2 MB. Make it smaller first.")
+        return Problem("too_big", f"The picture is {size:.1f} MB; the limit is 10 MB. Make it smaller first.")
     for magic, ext in _SIGNATURES:
         if data.startswith(magic):
             return ext

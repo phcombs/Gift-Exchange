@@ -4,14 +4,17 @@ Placeholders are filled by literal text replacement, so any other brace ("{", "{
 exactly as typed and can never crash a send.
 """
 
+import html
 import re
 from email.message import EmailMessage
 from email.policy import default
+from email.utils import make_msgid
 
 from giftx.model import Problem
 
 GIVER = "{giver}"
 RECIPIENT = "{recipient}"
+PICTURE = "{picture}"  # optional: where the picture goes; at the end without it
 
 DEFAULT_SUBJECT = "Gift exchange: your match, {giver}"
 DEFAULT_BODY = (
@@ -84,20 +87,58 @@ def preview(subject, body):
     )
 
 
-def build_email(to, subject, body, image=None):
-    """A plain-text UTF-8 email as bytes. image: (bytes, ext) or None. No From header: Gmail adds it.
+def preview_text(body):
+    """The preview body as shown on the page: where the picture goes is marked."""
+    return body.replace(PICTURE, "[picture]")
 
-    Subject and body must already be filled in.
+
+def plain_text(body):
+    """The text version: the {picture} placeholder is removed."""
+    return body.replace(PICTURE, "")
+
+
+def html_body(body, cid):
+    """The HTML version: the text kept as written (escaped, line breaks kept) with the picture shown
+    where {picture} is, or at the end when there's no placeholder."""
+    img = f'<img src="cid:{cid}" alt="" style="max-width:100%;height:auto;">'
+    pieces = [html.escape(p).replace("\n", "<br>\n") for p in body.split(PICTURE)]
+    content = img.join(pieces) if len(pieces) > 1 else pieces[0] + "<br>\n<br>\n" + img
+    return (
+        '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:15px;'
+        f'line-height:1.4">\n{content}\n</body></html>\n'
+    )
+
+
+def build_email(to, subject, body, image=None):
+    """A UTF-8 email as bytes. No From header (the sender adds it). Subject and body must already be
+    filled in. image: (bytes, ext) or None.
+
+    Without an image: plain text only. With one: plain text plus an HTML version that shows the
+    picture inline (an animated GIF plays in the message), referenced by Content-ID.
     """
     msg = EmailMessage(policy=default)
     msg["To"] = to
     msg["Subject"] = subject
-    msg.set_content(body, subtype="plain", charset="utf-8")
+    msg.set_content(plain_text(body), subtype="plain", charset="utf-8")
     if image is not None:
         data, ext = image
         ext = ext.lower().lstrip(".")
         subtype = IMAGE_TYPES.get(ext)
         if subtype is None:
             raise ValueError(f"unsupported image type: {ext}")
-        msg.add_attachment(data, maintype="image", subtype=subtype, filename=f"picture.{ext}")
+        cid = make_msgid(domain="giftx.invalid")
+        msg.add_alternative(html_body(body, cid[1:-1]), subtype="html", charset="utf-8")
+        msg.get_payload()[1].add_related(
+            data, maintype="image", subtype=subtype, cid=cid,
+            disposition="inline", filename=f"picture.{ext}",
+        )
     return msg.as_bytes()
+
+
+def inline_images(msg):
+    """[(filename, content-type, bytes, content-id)] of the pictures shown inside a parsed message."""
+    return [
+        (part.get_filename(), part.get_content_type(), part.get_content(), part["Content-ID"])
+        for part in msg.walk()
+        if part.get_content_maintype() == "image"
+    ]

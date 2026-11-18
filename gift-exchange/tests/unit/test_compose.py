@@ -83,22 +83,36 @@ def test_plain_text_utf8_and_no_from_header():
     assert not msg.is_multipart()
 
 
-def test_no_image_means_no_attachment():
-    msg = parse(build_email("a@example.com", "s", "b\n"))
-    assert list(msg.iter_attachments()) == []
+def test_no_image_means_plain_text_only():
+    msg = parse(build_email("a@example.com", "s", "b\n{picture}"))
+    assert compose.inline_images(msg) == []
+    assert not msg.is_multipart()
+    assert msg.get_content() == "b\n"  # the placeholder is dropped
 
 
 @pytest.mark.parametrize("ext,subtype", [("png", "png"), ("jpg", "jpeg"), ("gif", "gif")])
-def test_image_is_one_attachment_named_picture(ext, subtype):
-    msg = parse(build_email("a@example.com", "s", "body\n", (PNG, ext)))
-    attachments = list(msg.iter_attachments())
-    assert len(attachments) == 1
-    (att,) = attachments
-    assert att.get_filename() == f"picture.{ext}"
-    assert att.get_content_type() == f"image/{subtype}"
-    assert att.get_content() == PNG
-    assert msg.get_body(("plain",)).get_content() == "body\n"
+def test_image_is_shown_inline_in_the_html_version(ext, subtype):
+    msg = parse(build_email("a@example.com", "s", "Hi <Ann> & co\n\nbody\n", (PNG, ext)))
+    ((name, ctype, data, cid),) = compose.inline_images(msg)
+    assert (name, ctype, data) == (f"picture.{ext}", f"image/{subtype}", PNG)
+    assert list(msg.iter_attachments()) == []  # inline, not an attachment
+    html = msg.get_body(("html",)).get_content()
+    assert f'src="cid:{cid[1:-1]}"' in html
+    assert html.index("body") < html.index("<img")  # at the end without a placeholder
+    assert "Hi &lt;Ann&gt; &amp; co<br>" in html  # text escaped, line breaks kept
+    assert msg.get_body(("plain",)).get_content() == "Hi <Ann> & co\n\nbody\n"
     assert msg["From"] is None
+
+
+def test_picture_placeholder_sets_where_the_picture_goes():
+    msg = parse(build_email("a@example.com", "s", "Top\n{picture}\nYou buy for Sam.\n", (PNG, "gif")))
+    html = msg.get_body(("html",)).get_content()
+    assert html.index("Top") < html.index("<img") < html.index("You buy for Sam.")
+    assert msg.get_body(("plain",)).get_content() == "Top\n\nYou buy for Sam.\n"
+
+
+def test_preview_marks_the_picture():
+    assert compose.preview_text("a {picture} b") == "a [picture] b"
 
 
 def test_unknown_image_type_is_refused():

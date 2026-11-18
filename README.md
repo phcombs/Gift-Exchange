@@ -34,8 +34,10 @@ stop the app.
 The app starts in **Practice** mode (sidebar): emails are written to files you can open, and nothing is
 sent. Switch to **Real** mode when you're ready.
 
-**Pictures (optional):** on the **Images** page, add JPEG, PNG or GIF pictures (memes work well), up to
-2 MB each. Each email gets one at random, as an attachment. With no pictures, emails go without one.
+**Pictures (optional):** on the **Images** page, add JPEG, PNG or GIF pictures (memes and animated GIFs
+work well), up to 10 MB each. Each email shows one inside the message, all different while they last; with
+one picture, everyone gets that one. It appears at the end of the message, or wherever you type
+`{picture}` on the Message page. With no pictures, emails are plain text.
 
 **Fixed matches:** on the Send page, open **Fixed matches** before drawing to choose who buys for whom
 for anyone you like; everyone else is drawn at random around them.

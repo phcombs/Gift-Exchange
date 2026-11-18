@@ -13,7 +13,7 @@ def uploader():
     # a new key after each upload empties the uploader
     n = st.session_state.get("_uploader_n", 0)
     files = st.file_uploader(
-        "Add pictures (JPEG, PNG or GIF, up to 2 MB each)",
+        "Add pictures (JPEG, PNG or GIF, up to 10 MB each)",
         type=["jpg", "jpeg", "png", "gif"], accept_multiple_files=True, key=f"uploader_{n}",
     )
     if not files:
@@ -63,6 +63,6 @@ def page():
     common.show_flash()
     store = common.store()
     st.subheader("Pictures")
-    st.caption("One shared library for all groups. Pictures are attached to the emails, not shown inline.")
+    st.caption("One shared library for all groups. Each email shows one picture inside the message (GIFs play), at the end or wherever the message has {picture}.")
     uploader()
     gallery(store)

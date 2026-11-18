@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from email import message_from_bytes
 from email.policy import default
 
-from giftx import paths, pipeline
+from giftx import compose, paths, pipeline
 from giftx.model import Outgoing, Rejected, Sent
 from giftx.senders import PracticeSender
 
@@ -73,5 +73,5 @@ def test_test_send_attaches_a_stored_image():
     pipeline.test_send(PracticeSender(), "me@example.com", "s", "{giver}", "abc.png", clock)
     (eml,) = paths.practice_test_dir().iterdir()
     msg = message_from_bytes(eml.read_bytes(), policy=default)
-    (att,) = msg.iter_attachments()
-    assert att.get_filename() == "picture.png"
+    ((name, ctype, data, cid),) = compose.inline_images(msg)
+    assert (name, ctype) == ("picture.png", "image/png")
