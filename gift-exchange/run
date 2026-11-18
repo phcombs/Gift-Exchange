@@ -1,11 +1,36 @@
 #!/bin/sh
-# Starts Gift Exchange on macOS or Linux: ./run   (the same as: python3 run.py)
+# Starts Gift Exchange on macOS or Linux: double-click this file, or type ./run in a terminal.
+# Nothing needs to be installed first: if Python isn't found, this installs uv (a small tool that
+# downloads Python 3.12 just for this app) and uses that.
 cd "$(dirname "$0")" || exit 1
-if command -v python3 >/dev/null 2>&1; then
-  exec python3 run.py "$@"
+UV_VERSION=0.13.8
+
+usable() {
+  # macOS ships a /usr/bin/python3 placeholder that pops up an installer when developer tools are
+  # missing; skip it in that case instead of interrupting the start.
+  if [ "$(command -v "$1")" = /usr/bin/python3 ] && [ "$(uname)" = Darwin ] \
+    && ! xcode-select -p >/dev/null 2>&1; then
+    return 1
+  fi
+  command -v "$1" >/dev/null 2>&1 \
+    && "$1" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1
+}
+
+# 1. An installed Python 3.8 or newer runs the launcher directly.
+for py in python3 python; do
+  if usable "$py"; then
+    exec "$py" run.py "$@"
+  fi
+done
+
+# 2. No Python: use uv, installing it once if needed (into your home folder, no admin rights).
+UV=$(command -v uv 2>/dev/null || echo "$HOME/.local/bin/uv")
+if [ ! -x "$UV" ]; then
+  echo "Installing uv, one time only. This needs an internet connection..."
+  curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" | env UV_NO_MODIFY_PATH=1 sh
+  if [ ! -x "$UV" ]; then
+    echo "Could not install uv. Check your internet connection and try again."
+    exit 1
+  fi
 fi
-if command -v python >/dev/null 2>&1; then
-  exec python run.py "$@"
-fi
-echo "Gift Exchange needs Python 3. Install it from https://www.python.org/downloads/ and try again."
-exit 1
+exec "$UV" run --no-project --python 3.12 run.py "$@"

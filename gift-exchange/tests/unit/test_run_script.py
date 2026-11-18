@@ -247,3 +247,16 @@ def test_find_uv_prefers_path_then_home_then_bootstrap(launcher, monkeypatch, tm
     assert run.find_uv() == str(run.home_uv())
     monkeypatch.setattr(run.shutil, "which", lambda name: "/on/path/uv")
     assert run.find_uv() == "/on/path/uv"
+
+
+def test_wrappers_pin_the_same_uv_version_as_run_py():
+    version = re.search(r'^UV_VERSION = "(\S+)"$', (REPO / "run.py").read_text(encoding="utf-8"), re.M).group(1)
+    assert f"UV_VERSION={version}" in (REPO / "run").read_text(encoding="utf-8")
+    assert f'set "UV_VERSION={version}"' in (REPO / "run.cmd").read_text(encoding="utf-8")
+
+
+def test_wrappers_fall_back_to_uv_without_python():
+    for name in ("run", "run.cmd"):
+        text = (REPO / name).read_text(encoding="utf-8")
+        assert "run --no-project --python 3.12 run.py" in text, name
+        assert "UV_NO_MODIFY_PATH" in text, name
