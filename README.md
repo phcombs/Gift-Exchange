@@ -34,6 +34,12 @@ stop the app.
 The app starts in **Practice** mode (sidebar): emails are written to files you can open, and nothing is
 sent. Switch to **Real** mode when you're ready.
 
+**Pictures (optional):** on the **Images** page, add JPEG, PNG or GIF pictures (memes work well), up to
+2 MB each. Each email gets one at random, as an attachment. With no pictures, emails go without one.
+
+**Reveal:** the matches stay hidden, even from you, since the organizer is usually in the draw. If you
+need to see them, turn on **Reveal the matches** on the Send page. It's off again in every new tab.
+
 ## Sending real email
 
 Real mode sends from your own email account using an **app password**, a separate password your
@@ -73,6 +79,16 @@ Names, addresses, draws and email settings stay on your computer, never in this 
 
 Everything is in one SQLite file, `giftx.sqlite3`; back it up by copying it. Set `GIFTX_DATA_DIR` to use
 another folder.
+
+## Troubleshooting
+
+- **"The server refused the sign-in"**: use an app password, not your normal password, and check that
+  2-Step Verification is on. Work or school accounts may not allow app passwords.
+- **A person shows "may or may not have gone"**: the connection broke mid-send. Look in your Sent folder,
+  then press **It went** or **Send again** for that person on the Send page.
+- **"The picture for … is missing"**: a picture was deleted outside the app after emails were prepared.
+  Start a new practice run, or **Start a new exchange** before real sending begins again.
+- The app only listens on your own computer (`localhost`); other devices on your Wi-Fi can't open it.
 
 ## For developers
 

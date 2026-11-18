@@ -97,7 +97,9 @@ def message_page():
 
 
 def images_page():
-    banner()
+    from giftx.ui import images
+
+    images.page()
 
 
 def send_page():

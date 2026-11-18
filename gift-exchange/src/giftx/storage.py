@@ -447,3 +447,15 @@ class Storage:
                 row[0]
                 for row in conn.execute("SELECT DISTINCT image_name FROM sends WHERE image_name IS NOT NULL")
             }
+
+    def image_users(self):
+        """{image name: [group names]} for every image named on a send record."""
+        users = {}
+        with self._read() as conn:
+            for name, group in conn.execute(
+                "SELECT DISTINCT s.image_name, g.name FROM sends s "
+                "JOIN draws d ON d.id = s.draw_id JOIN groups g ON g.id = d.group_id "
+                "WHERE s.image_name IS NOT NULL ORDER BY g.name COLLATE NOCASE"
+            ):
+                users.setdefault(name, []).append(group)
+        return users

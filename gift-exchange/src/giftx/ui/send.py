@@ -72,15 +72,19 @@ def draw_section(store, gid, people, draw_id, locked, givers):
     label = "Draw again" if draw_id is not None else "Draw"
     if st.button(label, key="draw", type="primary", disabled=bool(problems) or locked):
         do_draw(store, gid, people)
-    if givers:
-        # recipients are never read here: the table shows givers only
-        st.dataframe(
-            [{"Giver": name, "Buys for": HIDDEN} for _, name in givers],
-            hide_index=True,
-            width="stretch",
-        )
-    else:
+    if not givers:
         st.write("No draw yet.")
+        return
+    # off in every new tab; recipients are read from the database only while it is on
+    reveal = st.toggle("Reveal the matches", key=f"reveal_{gid}",
+                       help="Shows who buys for whom on this screen. Off again in every new tab.")
+    if reveal:
+        names = {p.id: p.name for p in people}
+        matches = store.get_assignments(draw_id)
+        rows = [{"Giver": name, "Buys for": names[matches[pid]]} for pid, name in givers]
+    else:
+        rows = [{"Giver": name, "Buys for": HIDDEN} for _, name in givers]
+    st.dataframe(rows, hide_index=True, width="stretch")
 
 
 # ------------------------------------------------------------------ sending
