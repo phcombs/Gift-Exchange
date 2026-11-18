@@ -71,8 +71,9 @@ def show_preview(subject, body):
             st.text("[picture]")
     if pictures:
         st.caption(
-            f"[picture] marks where one of your {len(pictures)} "
-            f"{'picture' if len(pictures) == 1 else 'pictures'} appears. Send a test email to see it."
+            ("[picture] marks where your picture appears." if len(pictures) == 1 else
+             f"[picture] marks where one of your {len(pictures)} pictures appears.")
+            + " Send a test email to see it."
         )
 
 

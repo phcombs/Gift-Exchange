@@ -104,8 +104,9 @@ def html_body(body, cid):
     pieces = [html.escape(p).replace("\n", "<br>\n") for p in body.split(PICTURE)]
     content = img.join(pieces) if len(pieces) > 1 else pieces[0] + "<br>\n<br>\n" + img
     return (
-        '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:15px;'
-        f'line-height:1.4">\n{content}\n</body></html>\n'
+        # styles sit on a <div>: many mail apps (Gmail among them) drop styles on <body>
+        '<!DOCTYPE html><html><body>\n<div style="font-family:Arial,sans-serif;font-size:15px;'
+        f'line-height:1.4">\n{content}\n</div>\n</body></html>\n'
     )
 
 

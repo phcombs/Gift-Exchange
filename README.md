@@ -67,15 +67,53 @@ If your computer warns you the first time:
 The app starts in **Practice** mode (switch in the left sidebar): emails are written to files on your
 computer instead of being sent, so you can try everything safely.
 
-1. **People** page: create a group, then add people one at a time, or paste a list with one
-   `name, email` per line. Mark couples; they never draw each other.
-2. **Message** page: edit the subject and message. `{giver}` becomes the person reading the email and
-   `{recipient}` the person they buy for. The preview uses made-up names (Alex and Sam).
-3. **Images** page (optional): add a GIF or picture. Each email shows one inside the message.
-4. **Send** page: press **Draw**. Everyone is listed with "match hidden". Press **Send all unsent**,
-   check the list, and confirm. In Practice mode, open the email files it writes (the page says where)
-   to check them.
-5. When everything looks right, set up Gmail (next section), switch the sidebar to **Real**, and send.
+### People
+
+Create a group, then add people one at a time, or paste a list with one `name, email` per line. Mark
+couples; they never draw each other. You can have several groups (for example, two sides of the
+family); pick the group in the sidebar.
+
+<img src="docs/screenshots/people.png" alt="People page with a group of eight people and their partners" width="720">
+
+### Message
+
+Edit the subject and message. `{giver}` becomes the person reading the email and `{recipient}` the
+person they buy for. Keep `{recipient}` well down the message so it doesn't show in the inbox preview.
+The preview below the editor uses made-up names (Alex and Sam), and **Send test email** sends you a copy.
+
+<img src="docs/screenshots/message.png" alt="Message page with the editor and a preview" width="720">
+
+### Images (optional)
+
+Add a GIF or picture. Each email shows one inside the message; with several, everyone gets a different
+one while they last. It goes at the end of the message, or wherever you type `{picture}`.
+
+<img src="docs/screenshots/images.png" alt="Images page with one GIF of a present" width="720">
+
+### Send
+
+Press **Draw**. Everyone is listed with "match hidden": the app never shows who buys for whom unless you
+turn on **Reveal the matches**.
+
+<img src="docs/screenshots/send-draw.png" alt="Send page after drawing: every giver with match hidden" width="720">
+
+Press **Send all unsent**. A confirm step lists who gets an email and at which address (never their
+match). Press **Confirm and send**.
+
+<img src="docs/screenshots/send-confirm.png" alt="Confirm step listing each giver and their address" width="720">
+
+The table then shows each person's status. In Practice mode the emails are written to files (the page
+says where); double-click one to open it in your mail app and check it.
+
+<img src="docs/screenshots/send-status.png" alt="Status table after a practice run" width="720">
+
+### What people receive
+
+Each person gets their own email, from your address, with their match and the picture:
+
+<img src="docs/screenshots/email.png" alt="An example email: greeting, explanation, the match, and a GIF of a present" width="560">
+
+When everything looks right, set up Gmail (next section), switch the sidebar to **Real**, and send.
 
 ## 4. Send real email from Gmail
 
@@ -92,6 +130,9 @@ don't need a developer account or a Google Cloud project.
    check, and says "Real mode is ready" when it works.
    - Tick **Remember the app password on this computer** if you don't want to enter it each time you
      start the app. Otherwise it's forgotten when the app stops.
+
+   <img src="docs/screenshots/setup.png" alt="Setup page with Gmail chosen, an address and an app password filled in" width="640">
+
 4. **Send yourself a test:** switch the sidebar to **Real**, go to the **Message** page, type your own
    address in **Send test to**, and press **Send test email**. Check your inbox.
 5. **Send everyone their match:** on the **Send** page in Real mode, press **Send all unsent** and
@@ -129,6 +170,8 @@ Good to know:
   people involved swap). This works until real emails start going out.
 - **Saved draws:** found a draw you like but want to try other things? Open **Saved draws**, name it and
   save it. **Restore** brings it back exactly, as long as the group has the same people.
+
+<img src="docs/screenshots/send-options.png" alt="Send page with the Fixed matches and Saved draws sections open" width="720">
 
 ## Your data
 
@@ -180,6 +223,9 @@ folder.
   `pipeline.py` and `senders.py`). The launcher is `run.py` (standard library only), wrapped by `run`
   and `run.cmd`.
 - The design is in `docs/designs/design_draft.md`; `HANDOFF.md` has the current status.
+- Screenshots: `uv run --group docs playwright install chromium` once, then
+  `uv run --group docs python scripts/screenshots.py` regenerates everything in `docs/screenshots/`
+  from a throwaway copy of the app filled with made-up people.
 
 ---
 

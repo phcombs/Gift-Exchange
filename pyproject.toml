@@ -11,6 +11,10 @@ dependencies = [
 dev = [
     "pytest",
 ]
+# only for regenerating the README screenshots: uv run --group docs python scripts/screenshots.py
+docs = [
+    "playwright",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.8,<0.14.0"]
