@@ -30,7 +30,7 @@ REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "docs" / "screenshots"
 PORT = 8502
 URL = f"http://localhost:{PORT}"
-VIEWPORT = {"width": 1280, "height": 860}
+VIEWPORT = {"width": 1280, "height": 2400}  # tall: pages never scroll, shots are cropped instead
 
 PEOPLE = [
     ("Alex Smith", "Jamie Smith"),
@@ -125,11 +125,21 @@ def settle(page, text=None):
     page.wait_for_timeout(700)
 
 
-def shot(page, name):
+MAIN_COLUMN = (410, 1170)  # x range of the page's content column, for shots that start mid-page
+
+
+def shot(page, name, bottom, top=None, pad=28, top_pad=12, main_only=False):
+    """Crop from the top of the page (or just above `top`) to just below `bottom` (locators), so each
+    picture ends at a clean edge and shows only what its README step talks about. Shots that start
+    mid-page (main_only) leave out the sidebar, which would only be an empty strip there."""
     path = OUT / f"{name}.png"
-    page.mouse.move(5, 5)  # no hover toolbars in the picture
+    page.mouse.move(VIEWPORT["width"] - 5, 5)  # away from tables and the sidebar's collapse button
     page.wait_for_timeout(300)
-    page.screenshot(path=str(path))
+    y0 = max(0, top.bounding_box()["y"] - top_pad) if top is not None else 0
+    box = bottom.bounding_box()
+    y1 = box["y"] + box["height"] + pad
+    x0, x1 = MAIN_COLUMN if main_only else (0, VIEWPORT["width"])
+    page.screenshot(path=str(path), clip={"x": x0, "y": y0, "width": x1 - x0, "height": y1 - y0})
     print("saved", path.relative_to(REPO))
 
 
@@ -176,49 +186,55 @@ def main():
             browser = p.chromium.launch()
             page = browser.new_page(viewport=VIEWPORT, device_scale_factor=1)
 
+            button = lambda label: page.get_by_role("button", name=label, exact=True)  # noqa: E731
+            send_heading = lambda: page.get_by_role("heading", name="Send", exact=True)  # noqa: E731
+            tables = page.locator('[data-testid="stDataFrame"]')
+
+            # People: the group, its people and partners, and the "Add a person" form
             open_page(page, "people", "Smith family")
-            shot(page, "people")
+            shot(page, "people", bottom=button("Add person"))
 
-            page.set_viewport_size({"width": 1280, "height": 1250})
+            # Message: the editor and the whole preview, down to its caption
             open_page(page, "message", "Preview")
-            shot(page, "message")
-            page.set_viewport_size(VIEWPORT)
+            shot(page, "message", bottom=page.get_by_text("Send a test email to see it."), pad=16)
 
+            # Images: the uploader and the library
             open_page(page, "images", "Pictures")
-            shot(page, "images")
+            shot(page, "images", bottom=button("Delete"), pad=20)
 
+            # Send, after drawing: the hidden draw table
             open_page(page, "send", "Draw again")
-            shot(page, "send-draw")
+            shot(page, "send-draw", bottom=tables.first, pad=20)
 
+            # More features: Fixed matches and Saved draws opened
             page.get_by_text("Fixed matches").first.click()
             settle(page)
             page.get_by_text("Saved draws").first.click()
             settle(page)
-            shot(page, "send-options")
+            shot(page, "send-options", bottom=button("Save this draw"))
             page.get_by_text("Fixed matches").first.click()
             page.get_by_text("Saved draws").first.click()
             settle(page)
 
-            page.get_by_role("button", name="Send all unsent").click()
+            # Confirm step: from the Send heading to the bottom of the confirm box
+            button("Send all unsent").click()
             settle(page, "Confirm and send")
-            page.get_by_role("button", name="Confirm and send").scroll_into_view_if_needed()
-            settle(page)
-            shot(page, "send-confirm")
+            shot(page, "send-confirm", top=send_heading(), bottom=button("Cancel"), main_only=True)
 
-            page.get_by_role("button", name="Confirm and send").click()
+            # After a practice run: the status table. (The message at the top names the practice
+            # folder, a path with the local user name, so it is left out of the pictures.)
+            button("Confirm and send").click()
             settle(page, "practice emails")
-            page.get_by_text("Start a new exchange").first.scroll_into_view_if_needed()
-            settle(page)
-            shot(page, "send-status")
+            shot(page, "send-status", top=send_heading(), bottom=tables.last, pad=12, main_only=True)
 
             render_email(page, data_dir)
 
             open_page(page, "", "Email account")  # the default page lives at /
             page.get_by_label("Your email address").fill("you@example.com")
             page.get_by_label("App password", exact=True).fill("abcdefghijklmnop")
-            page.get_by_label("Your email address").focus()
+            page.evaluate("document.activeElement.blur()")  # no focus outline in the picture
             settle(page)
-            shot(page, "setup")
+            shot(page, "setup", bottom=button("Save and test the connection"), pad=20)
 
             browser.close()
     finally:

@@ -93,19 +93,21 @@ one while they last. It goes at the end of the message, or wherever you type `{p
 ### Send
 
 Press **Draw**. Everyone is listed with "match hidden": the app never shows who buys for whom unless you
-turn on **Reveal the matches**.
+turn on **Reveal the matches**. (**Fixed matches** and **Saved draws** are optional; see
+[More features](#more-features).)
 
 <img src="docs/screenshots/send-draw.png" alt="Send page after drawing: every giver with match hidden" width="720">
 
 Press **Send all unsent**. A confirm step lists who gets an email and at which address (never their
 match). Press **Confirm and send**.
 
-<img src="docs/screenshots/send-confirm.png" alt="Confirm step listing each giver and their address" width="720">
+<img src="docs/screenshots/send-confirm.png" alt="Confirm step listing each giver and their address" width="600">
 
-The table then shows each person's status. In Practice mode the emails are written to files (the page
-says where); double-click one to open it in your mail app and check it.
+The table then shows each person's status. In Practice mode nothing is sent: a green message at the
+top of the page names the folder the email files went into. Double-click one to open it in your mail
+app and see exactly what that person would get.
 
-<img src="docs/screenshots/send-status.png" alt="Status table after a practice run" width="720">
+<img src="docs/screenshots/send-status.png" alt="Status table after a practice run" width="600">
 
 ### What people receive
 
@@ -162,14 +164,16 @@ Good to know:
 - **Pictures:** JPEG, PNG or GIF up to 10 MB each (animated GIFs play in Gmail). With several, everyone
   gets a different one while they last; with one, everyone gets that one. It appears at the end of the
   message, or wherever you type `{picture}`. With no pictures, emails are plain text.
-- **Fixed matches:** on the Send page, open **Fixed matches** before drawing to choose who buys for whom
-  for anyone you like; everyone else is drawn at random around them.
 - **Reveal:** the matches stay hidden, since the organizer is usually in the draw. To see them, turn on
   **Reveal the matches** on the Send page. It's off again in every new tab.
 - **Changing a match:** with Reveal on, **Change a match** gives someone a different person (the two
   people involved swap). This works until real emails start going out.
+- **Fixed matches:** on the Send page, open **Fixed matches** before drawing to choose who buys for whom
+  for anyone you like; everyone else is drawn at random around them.
 - **Saved draws:** found a draw you like but want to try other things? Open **Saved draws**, name it and
   save it. **Restore** brings it back exactly, as long as the group has the same people.
+
+The Send page with **Fixed matches** and **Saved draws** opened:
 
 <img src="docs/screenshots/send-options.png" alt="Send page with the Fixed matches and Saved draws sections open" width="720">
 
