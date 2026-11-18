@@ -78,7 +78,7 @@ family); pick the group in the sidebar.
 ### Message
 
 Edit the subject and message. `{giver}` becomes the person reading the email and `{recipient}` the
-person they buy for. Keep `{recipient}` well down the message so it doesn't show in the inbox preview.
+person they buy for. The default subject is "Christmas Gift Exchange".
 The preview below the editor uses made-up names (Alex and Sam), and **Send test email** sends you a copy.
 
 <img src="docs/screenshots/message.png" alt="Message page with the editor and a preview" width="720">
@@ -113,7 +113,7 @@ app and see exactly what that person would get.
 
 Each person gets their own email, from your address, with their match and the picture:
 
-<img src="docs/screenshots/email.png" alt="An example email: greeting, explanation, the match, and a GIF of a present" width="560">
+<img src="docs/screenshots/email.png" alt="An example email: the greeting, the match, and a GIF of a present" width="560">
 
 When everything looks right, set up Gmail (next section), switch the sidebar to **Real**, and send.
 
@@ -154,8 +154,10 @@ Good to know:
 
 - If an email fails, the run stops there. Press **Send all unsent** again to continue. Nobody gets two
   emails unless you press **Send again** for them.
-- Your Gmail **Sent** folder holds every email, including the matches. The default message keeps the
-  match out of the inbox preview line, but opening a sent email shows it.
+- Inbox and Sent-folder lists show the first line or so of each email next to the subject. With the
+  default message that preview includes the match, so anyone glancing at the list (including you, in
+  your Sent folder) can see it. To hide it, add several lines of text before `{recipient}`.
+- Your Gmail **Sent** folder holds every email, including the matches.
 - Once real sending starts, the draw is locked: only email addresses can change. **Start a new
   exchange** on the Send page clears the draw for next year and keeps the people and the message.
 

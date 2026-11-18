@@ -25,9 +25,10 @@ def codes(problems):
     return sorted(p.code for p in problems)
 
 
-def test_defaults_pass_and_keep_the_match_out_of_the_preview_line():
+def test_defaults_pass_and_read_as_chosen():
     assert check_template(DEFAULT_SUBJECT, DEFAULT_BODY) == []
-    assert len(DEFAULT_BODY.split("{recipient}")[0]) >= 200
+    assert DEFAULT_SUBJECT == "Christmas Gift Exchange"
+    assert DEFAULT_BODY == "Hi {giver}, happy Festivus.\n\n\n\n\n\nYou are buying a gift for {recipient}."
 
 
 def test_recipient_in_subject_is_refused():

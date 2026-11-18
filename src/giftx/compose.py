@@ -16,19 +16,26 @@ GIVER = "{giver}"
 RECIPIENT = "{recipient}"
 PICTURE = "{picture}"  # optional: where the picture goes; at the end without it
 
-DEFAULT_SUBJECT = "Gift exchange: your match, {giver}"
+DEFAULT_SUBJECT = "Christmas Gift Exchange"
 DEFAULT_BODY = (
+    "Hi {giver}, happy Festivus.\n\n\n\n\n\n"
+    "You are buying a gift for {recipient}."
+)
+
+# Earlier defaults. A group still holding one of these unchanged is moved to the current default when
+# the database opens; a message someone edited is never touched.
+_LEAD_IN_BODY = (
     "Hi {giver},\n\n"
     "This email tells you who you are buying a gift for in this year's gift exchange. The name is "
     "further down, so it does not show up in inbox or Sent-folder previews where someone else might "
     "see it. Scroll down when you are ready to read it.\n\n\n\n\n"
     "You are buying a gift for {recipient}."
 )
-
-# earlier defaults: a group still holding one of these unchanged is moved to DEFAULT_BODY
 OLD_DEFAULT_BODIES = (
-    DEFAULT_BODY + "\n\nPlease keep it a secret!",
+    _LEAD_IN_BODY,
+    _LEAD_IN_BODY + "\n\nPlease keep it a secret!",
 )
+OLD_DEFAULT_SUBJECTS = ("Gift exchange: your match, {giver}",)
 
 PREVIEW_GIVER = "Alex"
 PREVIEW_RECIPIENT = "Sam"

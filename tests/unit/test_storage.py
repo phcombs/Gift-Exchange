@@ -334,10 +334,14 @@ def test_snapshots_survive_a_new_exchange_and_go_with_the_group(store):
 def test_groups_on_the_old_default_message_get_the_new_one(store):
     from giftx.compose import OLD_DEFAULT_BODIES
 
-    a = store.create_group("Old default")
-    b = store.create_group("Edited")
-    store.set_message(a, DEFAULT_SUBJECT, OLD_DEFAULT_BODIES[0])
-    store.set_message(b, DEFAULT_SUBJECT, OLD_DEFAULT_BODIES[0] + " Edited by hand.")
+    from giftx.compose import OLD_DEFAULT_SUBJECTS
+
+    olds = [store.create_group(f"Old default {i}") for i in range(len(OLD_DEFAULT_BODIES))]
+    edited = store.create_group("Edited")
+    for gid, body in zip(olds, OLD_DEFAULT_BODIES):
+        store.set_message(gid, OLD_DEFAULT_SUBJECTS[0], body)
+    store.set_message(edited, "My own subject", OLD_DEFAULT_BODIES[0] + " Edited by hand.")
     reopened = Storage(store.db_path)
-    assert reopened.get_message(a)[1] == DEFAULT_BODY
-    assert reopened.get_message(b)[1] == OLD_DEFAULT_BODIES[0] + " Edited by hand."
+    for gid in olds:
+        assert reopened.get_message(gid) == (DEFAULT_SUBJECT, DEFAULT_BODY)
+    assert reopened.get_message(edited) == ("My own subject", OLD_DEFAULT_BODIES[0] + " Edited by hand.")

@@ -163,13 +163,13 @@ def render_email(page, data_dir):
         f'<div style="font-size:20px;color:#222;margin-bottom:8px">{html.escape(msg["Subject"])}</div>'
         f'<div><b>From:</b> you@example.com &nbsp; <b>To:</b> {html.escape(msg["To"])}</div></div>'
     )
-    page.set_viewport_size({"width": 760, "height": 640})
+    page.set_viewport_size({"width": 760, "height": 200})  # grows to the content with full_page
     page.set_content(
         '<html><body style="margin:24px;background:#fff">' + head
         + body.split("<body", 1)[1].split(">", 1)[1].rsplit("</body>", 1)[0] + "</body></html>"
     )
     page.wait_for_timeout(500)
-    page.screenshot(path=str(OUT / "email.png"))
+    page.screenshot(path=str(OUT / "email.png"), full_page=True)
     print("saved", (OUT / "email.png").relative_to(REPO))
     page.set_viewport_size(VIEWPORT)
 
