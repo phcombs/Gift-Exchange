@@ -5,7 +5,10 @@ who buys for whom (the matches stay hidden, even from you), and email everyone t
 if you like.
 
 It runs on **Windows, macOS and Linux**. You don't need to install anything first: the first start sets
-up everything it needs (this needs an internet connection and takes a minute or two).
+up everything it needs.
+
+**What you need:** a computer with an internet connection (for the first start and for sending), and
+for real email a Gmail account (or iCloud/Yahoo, or any provider that offers SMTP and app passwords).
 
 ## 1. Get the app
 
@@ -14,8 +17,9 @@ up everything it needs (this needs an internet connection and takes a minute or 
 1. On the [GitHub page](https://github.com/phcombs/Gift-Exchange), click the green **Code** button, then
    **Download ZIP**.
 2. Unzip it. Windows: right-click the zip → **Extract All** → **Extract**. Mac: double-click the zip.
-3. Move the unzipped **Gift-Exchange** folder somewhere you'll keep it, such as your Documents folder.
-   (The app runs from this folder, and the shortcut it makes points here.)
+3. The unzipped folder is called **Gift-Exchange-master**. Move it somewhere you'll keep it, such as
+   your Documents folder, and rename it if you like. The app runs from this folder, and the shortcut it
+   makes points here.
 
 **With git:**
 
@@ -26,7 +30,7 @@ cd Gift-Exchange
 
 ## 2. Start it
 
-Open the **Gift-Exchange** folder and:
+Open the app folder (**Gift-Exchange-master** from the ZIP, or **Gift-Exchange** from git) and:
 
 | System | How |
 |---|---|
@@ -56,7 +60,7 @@ If your computer warns you the first time:
   because the file came from the internet; it's a plain text script you can open in Notepad to read.
 - **macOS** ("can't be opened because it is from an unidentified developer"): right-click `run`, choose
   **Open**, then **Open** again. If it opens as text instead, open Terminal, type `cd ` (with a space),
-  drag the Gift-Exchange folder into the window, press Enter, then type `sh run` and press Enter.
+  drag the app folder into the window, press Enter, then type `sh run` and press Enter.
 
 ## 3. Run your exchange
 
@@ -143,9 +147,13 @@ Everything is in one file, `giftx.sqlite3`; back it up by copying it. Practice e
 it the same way; or run `git pull` in the folder. Your data is kept, because it lives outside the app
 folder.
 
-**Removing it:** delete the app folder, the data folder above and the **Gift Exchange** shortcut. To remove uv as well, delete `uv.exe`
-from `%USERPROFILE%\.local\bin` (Windows) or `~/.local/bin/uv` (Mac/Linux), and its downloads with
-`uv cache clean` beforehand if you like. Delete the app password in your Google account.
+**Removing it:**
+
+1. Delete the app folder, the data folder above, and the **Gift Exchange** shortcut.
+2. Delete the app password at <https://myaccount.google.com/apppasswords>.
+3. Optionally remove uv too: first run `uv cache clean` in a terminal to delete its downloads (including
+   Python 3.12), then delete `uv.exe`, `uvx.exe` and `uvw.exe` from `%USERPROFILE%\.local\bin`
+   (Windows), or `uv` and `uvx` from `~/.local/bin` (Mac/Linux).
 
 ## Troubleshooting
 
